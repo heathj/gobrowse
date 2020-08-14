@@ -2,21 +2,90 @@ package parser
 
 import "strings"
 
+// Element is an individual HTML element that gets added to the DOM.
+type Element struct {
+	elemType elementType
+	children []*Element
+}
+
+type elementType uint
+
+const (
+	htmlElement elementType = iota
+	tableElement
+	tbodyElement
+	tfootElement
+	theadElement
+	trElement
+	templateElement
+	documentElement
+)
+
+type namespace uint
+
+const (
+	htmlNamepsace namespace = iota
+	mathmlNamespace
+	svgNamespace
+	xlinkNamespace
+	xmlNamespace
+	xmlnsNamespace
+)
+
+type documentType uint
+
+const (
+	iframeSrcDoc documentType = iota
+)
+
 // HTMLTreeConstructor holds the state for various state of the tree construction phase.
 type HTMLTreeConstructor struct {
-	tokenChannel          chan *Token
-	config                htmlParserConfig
-	scriptingEnabled      bool
-	domBuilder            *DOMBuilder
-	originalInsertionMode insertionMode
-	mappings              map[insertionMode]treeConstructionModeHandler
+	tokenChannel             chan *Token
+	config                   htmlParserConfig
+	originalInsertionMode    insertionMode
+	scriptingEnabled         bool
+	document                 *Document
+	framesetOK               bool
+	openElements             []*Element
+	headPointer              *Element
+	formPointer              *Element
+	activeFormattingElements []formattingElement
+	mappings                 map[insertionMode]treeConstructionModeHandler
 }
+
+type formattingElement uint
+
+const (
+	markerFElement formattingElement = iota
+	aFElement
+	bFElement
+	bigFElement
+	codeFElement
+	emFElement
+	fontFElement
+	iFElement
+	nobrFElement
+	sFElement
+	smallFElement
+	strikeFElement
+	strongFElement
+	ttFElement
+	uFElement
+)
+
+type location uint
+
+const (
+	lastChildOfDocument location = iota
+	adjustedInsertionLocation
+)
 
 // NewHTMLTreeConstructor creates an HTMLTreeConstructor.
 func NewHTMLTreeConstructor() *HTMLTreeConstructor {
 	c := make(chan *Token, 10)
 	tr := &HTMLTreeConstructor{
 		tokenChannel: c,
+		document:     &Document{},
 	}
 
 	tr.createMappings()
@@ -51,6 +120,94 @@ func (c *HTMLTreeConstructor) createMappings() {
 	}
 }
 
+func (c *HTMLTreeConstructor) SearchOpenElements(e elementType) bool {
+	for _, oe := range c.openElements {
+		if oe.elemType == e {
+			return true
+		}
+	}
+	return false
+}
+
+// Inserts a comment at a specific location.
+// https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
+func (c *HTMLTreeConstructor) insertCommentAt(t *Token, l location) {
+	//TODO
+}
+
+// Inserts a comment at the adjusted insertion location.
+// https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
+func (c *HTMLTreeConstructor) insertComment(t *Token) {
+	c.insertCommentAt(t, adjustedInsertionLocation)
+}
+
+// https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node
+func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertion() int {
+	//TODO
+	return 0
+}
+
+func (c *HTMLTreeConstructor) WriteMarker() {
+	c.activeFormattingElements = append(c.activeFormattingElements, markerFElement)
+}
+
+// createElementForToken creates an element from a token with the provided
+// namespace and parent element.
+// https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token
+func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns namespace, ip *Element) *Element {
+	e := &Element{}
+	c.document.children = append(c.document.children, e)
+	return e
+}
+
+//WriteHTMLElement inserts a foreign element for the token, in the HTML namespace.
+func (c *HTMLTreeConstructor) WriteHTMLElement(t *Token) {
+
+}
+
+//WriteCharacter adds the given characer to the appropriate place for inserting a node.
+func (c *HTMLTreeConstructor) WriteCharacter(t *Token) {
+
+}
+
+//WriteLatestHeadElement sets the head element pointer to the newly created head element.
+func (c *HTMLTreeConstructor) WriteLatestHeadElement() {
+
+}
+
+// PushOpenElements pushes an element to the list of currently open elements being parsed.
+func (c *HTMLTreeConstructor) PushOpenElements(e *Element) {
+	c.openElements = append(c.openElements, e)
+}
+
+// PopOpenElements pops an element off the list of open elements
+func (c *HTMLTreeConstructor) PopOpenElements() {
+
+}
+
+// WriteDocumentType sets the current document type given the curren token.
+func (c *HTMLTreeConstructor) WriteDocumentType(t *Token) {}
+
+// Quirks sets the quirks value to "force".
+func (c *HTMLTreeConstructor) Quirks() {
+	c.quirks = force
+}
+
+// LimitedQuirks sets the quirks value to "limited"
+func (c *HTMLTreeConstructor) LimitedQuirks() {
+	c.quirks = limited
+}
+
+// FramesetNotOK sets framesetOK state to false.
+func (c *HTMLTreeConstructor) FramesetNotOK() {
+	c.framesetOK = false
+}
+
+// CurrentNode returns the bottommost node from the stack of open elements.
+func (c *HTMLTreeConstructor) CurrentNode() *Element {
+	return c.openElements[len(c.openElements)-1]
+}
+
 func (c *HTMLTreeConstructor) useRulesFor(t *Token, returnState, expectedState insertionMode) (bool, insertionMode, parseError) {
 	reprocess, nextstate, err := c.mappings[expectedState](t)
 
@@ -68,11 +225,11 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 
 func (c *HTMLTreeConstructor) clearStackBackToTable() {
 	for {
-		switch c.domBuilder.CurrentNode().elemType {
+		switch c.CurrentNode().elemType {
 		case tableElement, templateElement, htmlElement:
 			return
 		default:
-			c.domBuilder.PopOpenElements()
+			c.PopOpenElements()
 		}
 	}
 }
@@ -209,7 +366,7 @@ var knownPublicIdentifiers = []string{
 }
 
 func (c *HTMLTreeConstructor) isForceQuirks(t *Token) bool {
-	if c.domBuilder.Document().docType != iframeSrcDoc {
+	if c.document.docType != iframeSrcDoc {
 		if t.ForceQuirks {
 			return true
 		}
@@ -262,6 +419,7 @@ func (c *HTMLTreeConstructor) isLimitedQuirks(t *Token) bool {
 	return false
 }
 
+// https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
 func (c *HTMLTreeConstructor) initialModeHandler(t *Token) (bool, insertionMode, parseError) {
 	err := noError
 	switch t.TokenType {
@@ -272,7 +430,7 @@ func (c *HTMLTreeConstructor) initialModeHandler(t *Token) (bool, insertionMode,
 		}
 
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertComment(t)
 	case docTypeToken:
 
 		if t.TagName != "html" ||
@@ -282,20 +440,20 @@ func (c *HTMLTreeConstructor) initialModeHandler(t *Token) (bool, insertionMode,
 			//TODO: just says this was a parse error?
 			err = generalParseError
 		}
-		c.domBuilder.WriteDocumentType(t)
+		c.WriteDocumentType(t)
 
 		if c.isForceQuirks(t) {
-			c.domBuilder.Quirks()
+			c.Quirks()
 		} else if c.isLimitedQuirks(t) {
-			c.domBuilder.LimitedQuirks()
+			c.LimitedQuirks()
 		}
 
 		return false, beforeHTML, err
 	default:
-		if c.domBuilder.Document().docType != iframeSrcDoc {
+		if c.document.docType != iframeSrcDoc {
 			//TODO: this is a parse error?
 			err = generalParseError
-			c.domBuilder.Quirks()
+			c.Quirks()
 		}
 	}
 	return true, beforeHTML, err
@@ -303,17 +461,18 @@ func (c *HTMLTreeConstructor) initialModeHandler(t *Token) (bool, insertionMode,
 
 func (c *HTMLTreeConstructor) defaultBeforeHTMLModeHandler(t *Token) (bool, insertionMode, parseError) {
 	//TODO
-	elem := c.domBuilder.CreateHTMLElement()
-	c.domBuilder.PushOpenElements(elem)
+	//	elem := c.CreateHTMLElement()
+	//	c.PushOpenElements(elem)
 	return true, beforeHead, noError
 }
 
+// https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode
 func (c *HTMLTreeConstructor) beforeHTMLModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case docTypeToken:
 		return false, beforeHTML, generalParseError
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertCommentAt(t, lastChildOfDocument)
 		return false, beforeHTML, noError
 	case characterToken:
 		switch t.Data {
@@ -322,7 +481,9 @@ func (c *HTMLTreeConstructor) beforeHTMLModeHandler(t *Token) (bool, insertionMo
 		}
 	case startTagToken:
 		if t.TagName == "html" {
-			//TODO
+			elem := c.createElementForToken(t, htmlNamepsace, c.document.elem)
+			c.document.elem.children = append(c.document.elem.children, elem)
+			c.openElements = append(c.openElements, elem)
 		}
 	case endTagToken:
 		switch t.TagName {
@@ -339,8 +500,8 @@ func (c *HTMLTreeConstructor) beforeHTMLModeHandler(t *Token) (bool, insertionMo
 
 func (c *HTMLTreeConstructor) defaultBeforeHeadModeHandler(t *Token) (bool, insertionMode, parseError) {
 	//TODO: Insert an HTML element for a "head" start tag token with no attributes.
-	c.domBuilder.WriteHTMLElement(t)
-	c.domBuilder.WriteLatestHeadElement()
+	c.WriteHTMLElement(t)
+	c.WriteLatestHeadElement()
 	return true, inHead, noError
 }
 func (c *HTMLTreeConstructor) beforeHeadModeHandler(t *Token) (bool, insertionMode, parseError) {
@@ -351,7 +512,7 @@ func (c *HTMLTreeConstructor) beforeHeadModeHandler(t *Token) (bool, insertionMo
 			return false, beforeHead, noError
 		}
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertComment(t)
 		return false, beforeHead, noError
 	case docTypeToken:
 		return false, beforeHead, generalParseError
@@ -361,9 +522,9 @@ func (c *HTMLTreeConstructor) beforeHeadModeHandler(t *Token) (bool, insertionMo
 		}
 
 		if t.TagName == "head" {
-			c.domBuilder.WriteHTMLElement(t)
+			c.WriteHTMLElement(t)
 			// TODO: set head element pointer
-			c.domBuilder.WriteLatestHeadElement()
+			c.WriteLatestHeadElement()
 			return false, inHead, noError
 		}
 	case endTagToken:
@@ -390,7 +551,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			return false, inHead, noError
 		}
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertComment(t)
 		return false, inHead, noError
 	case docTypeToken:
 		return false, inHead, generalParseError
@@ -399,19 +560,19 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 		case "html":
 			return c.useRulesFor(t, inHead, inBody)
 		case "base", "basefont", "bgsound", "link":
-			c.domBuilder.WriteHTMLElement(t)
-			c.domBuilder.PopOpenElements()
+			c.WriteHTMLElement(t)
+			c.PopOpenElements()
 			//TODO: acknowledge the self closing flag?
 		case "meta":
-			c.domBuilder.WriteHTMLElement(t)
-			c.domBuilder.PopOpenElements()
+			c.WriteHTMLElement(t)
+			c.PopOpenElements()
 			//TODO: acknowledge the self closing flag?
 		case "title":
 		case "noscript":
 			if c.scriptingEnabled {
 
 			} else {
-				c.domBuilder.WriteHTMLElement(t)
+				c.WriteHTMLElement(t)
 				return false, inHeadNoScript, noError
 			}
 		case "noframes", "style":
@@ -423,7 +584,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 	case endTagToken:
 		switch t.TagName {
 		case "head":
-			c.domBuilder.PopOpenElements()
+			c.PopOpenElements()
 			return false, afterHead, noError
 		case "body", "html", "br":
 			return c.defaultInHeadModeHandler(t)
@@ -437,7 +598,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 }
 
 func (c *HTMLTreeConstructor) defaultInHeadNoScriptModeHandler(t *Token) (bool, insertionMode, parseError) {
-	c.domBuilder.PopOpenElements()
+	c.PopOpenElements()
 	return true, inHead, generalParseError
 }
 func (c *HTMLTreeConstructor) inHeadNoScriptModeHandler(t *Token) (bool, insertionMode, parseError) {
@@ -463,7 +624,7 @@ func (c *HTMLTreeConstructor) inHeadNoScriptModeHandler(t *Token) (bool, inserti
 	case endTagToken:
 		switch t.TagName {
 		case "noscript":
-			c.domBuilder.PopOpenElements()
+			c.PopOpenElements()
 			return false, inHead, noError
 		case "br":
 			return c.defaultInHeadNoScriptModeHandler(t)
@@ -475,7 +636,7 @@ func (c *HTMLTreeConstructor) inHeadNoScriptModeHandler(t *Token) (bool, inserti
 }
 
 func (c *HTMLTreeConstructor) defaultAfterHeadModeHandler(t *Token) (bool, insertionMode, parseError) {
-	c.domBuilder.WriteHTMLElement(&Token{
+	c.WriteHTMLElement(&Token{
 		TokenType: startTagToken,
 		TagName:   "body",
 	})
@@ -486,11 +647,11 @@ func (c *HTMLTreeConstructor) afterHeadModeHandler(t *Token) (bool, insertionMod
 	case characterToken:
 		switch t.Data {
 		case "\u0009", "\u000A", "\u000C", "\u000D", "\u0020":
-			c.domBuilder.WriteCharacter(t)
+			c.WriteCharacter(t)
 			return false, afterHead, noError
 		}
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertComment(t)
 		return false, afterHead, noError
 	case docTypeToken:
 		return false, afterHead, generalParseError
@@ -499,17 +660,17 @@ func (c *HTMLTreeConstructor) afterHeadModeHandler(t *Token) (bool, insertionMod
 		case "html":
 			return c.useRulesFor(t, afterHead, inBody)
 		case "body":
-			c.domBuilder.WriteHTMLElement(t)
-			c.domBuilder.FramesetNotOK()
+			c.WriteHTMLElement(t)
+			c.FramesetNotOK()
 			return false, inBody, noError
 		case "frameset":
-			c.domBuilder.WriteHTMLElement(t)
+			c.WriteHTMLElement(t)
 			return false, inFrameset, noError
 		case "base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "template", "title":
-			c.domBuilder.PushOpenElements(c.domBuilder.HeadPointer())
+			c.PushOpenElements(c.headPointer)
 			reprocess, nextmode, err := c.inHeadModeHandler(t)
 
-			c.domBuilder.PopOpenElements()
+			c.PopOpenElements()
 			return reprocess, nextmode, err
 		case "head":
 			return false, afterHead, generalParseError
@@ -537,16 +698,16 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		switch t.Data {
 		case "\u0009", "\u000A", "\u000C", "\u000D", "\u0020":
 			c.reconstructActiveFormattingElements()
-			c.domBuilder.WriteCharacter(t)
+			c.WriteCharacter(t)
 			return false, inBody, noError
 		default:
 			c.reconstructActiveFormattingElements()
-			c.domBuilder.WriteCharacter(t)
-			c.domBuilder.FramesetNotOK()
+			c.WriteCharacter(t)
+			c.FramesetNotOK()
 			return false, inBody, noError
 		}
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertComment(t)
 		return false, inBody, noError
 	case docTypeToken:
 		return false, inBody, generalParseError
@@ -618,7 +779,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 func (c *HTMLTreeConstructor) textModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case characterToken:
-		c.domBuilder.WriteCharacter(t)
+		c.WriteCharacter(t)
 		return false, text, noError
 	case endOfFileToken:
 		return true, c.originalInsertionMode, generalParseError
@@ -627,7 +788,7 @@ func (c *HTMLTreeConstructor) textModeHandler(t *Token) (bool, insertionMode, pa
 		case "script":
 			return false, c.originalInsertionMode, noError
 		default:
-			c.domBuilder.PopOpenElements()
+			c.PopOpenElements()
 			return false, c.originalInsertionMode, noError
 		}
 	}
@@ -640,40 +801,40 @@ func (c *HTMLTreeConstructor) defaultInTableModeHandler(t *Token) (bool, inserti
 func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case characterToken:
-		switch c.domBuilder.CurrentNode().elemType {
+		switch c.CurrentNode().elemType {
 		case tableElement, tbodyElement, tfootElement, theadElement, trElement:
 			c.originalInsertionMode = inTable
 			return true, inTableText, noError
 		}
 	case commentToken:
-		c.domBuilder.WriteComment(t)
+		c.insertComment(t)
 	case docTypeToken:
 		return false, inTable, generalParseError
 	case startTagToken:
 		switch t.TagName {
 		case "caption":
 			c.clearStackBackToTable()
-			c.domBuilder.WriteMarker()
-			c.domBuilder.WriteHTMLElement(t)
+			c.WriteMarker()
+			c.WriteHTMLElement(t)
 			return false, inColumnGroup, noError
 		case "colgroup":
 			c.clearStackBackToTable()
-			c.domBuilder.WriteHTMLElement(t)
+			c.WriteHTMLElement(t)
 			return false, inColumnGroup, noError
 		case "col":
 			c.clearStackBackToTable()
-			c.domBuilder.WriteHTMLElement(&Token{
+			c.WriteHTMLElement(&Token{
 				TagName:   "colgroup",
 				TokenType: startTagToken,
 			})
 			return true, inColumnGroup, noError
 		case "tbody", "tfoot", "thead":
 			c.clearStackBackToTable()
-			c.domBuilder.WriteHTMLElement(t)
+			c.WriteHTMLElement(t)
 			return false, inTableBody, noError
 		case "td", "th", "tr":
 			c.clearStackBackToTable()
-			c.domBuilder.WriteHTMLElement(&Token{
+			c.WriteHTMLElement(&Token{
 				TokenType: startTagToken,
 				TagName:   "tbody",
 			})
@@ -684,7 +845,7 @@ func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode,
 			}
 
 			c.clearStackBackToTable()
-			c.domBuilder.PopOpenElements()
+			c.PopOpenElements()
 			nextMode := c.resetInsertionMode()
 			return true, nextMode, noError
 		case "style", "script", "template":
@@ -700,18 +861,18 @@ func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode,
 				return c.defaultInTableModeHandler(t)
 			}
 
-			c.domBuilder.WriteHTMLElement(t)
-			c.domBuilder.PopOpenElements()
+			c.WriteHTMLElement(t)
+			c.PopOpenElements()
 			//TODO self closing
 			return false, inTable, generalParseError
 		case "form":
-			if c.domBuilder.SearchOpenElements(templateElement) || c.domBuilder.FormPointer() != nil {
+			if c.SearchOpenElements(templateElement) || c.formPointer != nil {
 				return false, inTable, generalParseError
 			}
 
-			c.domBuilder.WriteHTMLElement(t)
-			c.domBuilder.WriteFormPointer()
-			c.domBuilder.PopOpenElements()
+			c.WriteHTMLElement(t)
+			//			c.formPointer =
+			c.PopOpenElements()
 		}
 	case endTagToken:
 		switch t.TagName {
