@@ -13,5 +13,5 @@ The spec isn't written in the best order for implementors, so this is my attempt
 features to get a working implementation.
 
 1. [ ] HTML Parser (https://html.spec.whatwg.org/#parsing)
-  * [ ] Tokenization (https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
-  * [ ] Tree Construction (https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
+   1. [ ] Tokenization (https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
+   1. [ ] Tree Construction (https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
