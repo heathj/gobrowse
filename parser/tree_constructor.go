@@ -2,25 +2,6 @@ package parser
 
 import "strings"
 
-// Element is an individual HTML element that gets added to the DOM.
-type Element struct {
-	elemType elementType
-	children []*Element
-}
-
-type elementType uint
-
-const (
-	htmlElement elementType = iota
-	tableElement
-	tbodyElement
-	tfootElement
-	theadElement
-	trElement
-	templateElement
-	documentElement
-)
-
 type namespace uint
 
 const (
@@ -40,17 +21,9 @@ const (
 
 // HTMLTreeConstructor holds the state for various state of the tree construction phase.
 type HTMLTreeConstructor struct {
-	tokenChannel             chan *Token
-	config                   htmlParserConfig
-	originalInsertionMode    insertionMode
-	scriptingEnabled         bool
-	document                 *Document
-	framesetOK               bool
-	openElements             []*Element
-	headPointer              *Element
-	formPointer              *Element
-	activeFormattingElements []formattingElement
-	mappings                 map[insertionMode]treeConstructionModeHandler
+	tokenChannel chan *Token
+	config       htmlParserConfig
+	mappings     map[insertionMode]treeConstructionModeHandler
 }
 
 type formattingElement uint
@@ -77,7 +50,7 @@ type location uint
 
 const (
 	lastChildOfDocument location = iota
-	adjustedInsertionLocation
+	appropriatePlaceForInserting
 )
 
 // NewHTMLTreeConstructor creates an HTMLTreeConstructor.
@@ -132,13 +105,17 @@ func (c *HTMLTreeConstructor) SearchOpenElements(e elementType) bool {
 // Inserts a comment at a specific location.
 // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
 func (c *HTMLTreeConstructor) insertCommentAt(t *Token, l location) {
-	//TODO
+	commentNode := c.document.createComment(DOMString(t.Data))
+	commentNode.ownerDocument = c.document
+	if l == lastChildOfDocument {
+		c.document.childNodes = append(c.document.childNodes, commentNode)
+	}
 }
 
 // Inserts a comment at the adjusted insertion location.
 // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
 func (c *HTMLTreeConstructor) insertComment(t *Token) {
-	c.insertCommentAt(t, adjustedInsertionLocation)
+	c.insertCommentAt(t, appropriatePlaceForInserting)
 }
 
 // https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node

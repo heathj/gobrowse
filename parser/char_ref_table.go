@@ -1,7 +1,6 @@
 package parser
 
 var charRefTable = map[string][]rune{
-	"test":                              {4},
 	"&AElig":                            {198},
 	"&AElig;":                           {198},
 	"&AMP":                              {38},

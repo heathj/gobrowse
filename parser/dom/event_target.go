@@ -1,4 +1,4 @@
-package parser
+package dom
 
 //https://dom.spec.whatwg.org/#eventtarget
 type EventTarget struct {
