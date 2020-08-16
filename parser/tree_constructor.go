@@ -1,6 +1,11 @@
 package parser
 
-import "strings"
+import (
+	"browser/parser/dom"
+	"browser/parser/html"
+	"browser/parser/webidl"
+	"strings"
+)
 
 type namespace uint
 
@@ -23,6 +28,7 @@ const (
 type HTMLTreeConstructor struct {
 	tokenChannel chan *Token
 	config       htmlParserConfig
+	doc          *html.HTMLDocument
 	mappings     map[insertionMode]treeConstructionModeHandler
 }
 
@@ -105,10 +111,13 @@ func (c *HTMLTreeConstructor) SearchOpenElements(e elementType) bool {
 // Inserts a comment at a specific location.
 // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
 func (c *HTMLTreeConstructor) insertCommentAt(t *Token, l location) {
-	commentNode := c.document.createComment(DOMString(t.Data))
-	commentNode.ownerDocument = c.document
+	commentNode := dom.NewComment(webidl.DOMString(t.Data))
+	// I think if the window has multiple documents such as a webpage with an iframe
+	// we will have to specific the document this comment needs to belong to.
+	commentNode.OwnerDocument = c.doc.Document
+
 	if l == lastChildOfDocument {
-		c.document.childNodes = append(c.document.childNodes, commentNode)
+		c.doc.ChildNodes = append(c.doc.ChildNodes, commentNode)
 	}
 }
 
