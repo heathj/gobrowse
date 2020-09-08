@@ -1,6 +1,6 @@
 package dom
 
-// https://dom.spec.whatwg.org/#abstractrange
+// AbstractRange is https://dom.spec.whatwg.org/#abstractrange
 type AbstractRange struct {
 	startContainer *Node
 	startOffset    uint

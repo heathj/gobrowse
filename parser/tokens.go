@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 )
 
@@ -38,6 +39,82 @@ type Token struct {
 	Data             string
 }
 
+func (t *Token) String() string {
+	switch t.TokenType {
+	case characterToken, commentToken:
+		return fmt.Sprintf(`Token: %s:
+	Data: %s
+`, t.TokenType, t.Data)
+	case startTagToken, endTagToken:
+		return fmt.Sprintf(`Token: %s:
+	TagName: %q
+	Attributes: %+v
+	SelfClosing: %t
+`, t.TokenType, t.TagName, t.Attributes, t.SelfClosing)
+	case endOfFileToken:
+		return `Token: EofToken
+`
+	case docTypeToken:
+		return fmt.Sprintf(`Token: DOCTYPE token
+	TagName: %q
+	ForQuirks: %t
+	PublicID: %q
+	SystemID: %q
+`, t.TagName, t.ForceQuirks, t.PublicIdentifier, t.SystemIdentifier)
+	}
+
+	return ""
+}
+
+// Equal compares if two tokens are equal to each other.
+func (a *Token) Equal(b *Token) bool {
+	if a.TokenType != b.TokenType {
+		return false
+	}
+
+	switch a.TokenType {
+	case characterToken, commentToken:
+		if a.Data != b.Data {
+			return false
+		}
+	case startTagToken, endTagToken:
+		if a.TagName != b.TagName {
+			return false
+		}
+
+		if a.SelfClosing != b.SelfClosing {
+			return false
+		}
+
+		if len(a.Attributes) != len(b.Attributes) {
+			return false
+		}
+		for k := range a.Attributes {
+			if _, ok := b.Attributes[k]; !ok {
+				return false
+			}
+
+			if a.Attributes[k] != b.Attributes[k] {
+				return false
+			}
+		}
+	case docTypeToken:
+		if a.TagName != b.TagName {
+			return false
+		}
+		if a.ForceQuirks != b.ForceQuirks {
+			return false
+		}
+		if a.PublicIdentifier != b.PublicIdentifier {
+			return false
+		}
+		if a.SystemIdentifier != b.SystemIdentifier {
+			return false
+		}
+	}
+	return true
+}
+
 // TokenBuilder builds various tokens up during the tokenization
 // phase.
 type TokenBuilder struct {
@@ -53,7 +130,7 @@ type TokenBuilder struct {
 	forceQuirks            bool
 	removeNextAttr         bool
 	curTagType             tagType
-	characterReferenceCode int
+	characterReferenceCode *big.Int
 }
 
 func newTokenBuilder() *TokenBuilder {
@@ -92,14 +169,30 @@ func (t *TokenBuilder) EnableForceQuirks() {
 
 // WritePublicIdentifier appends a rune to the public identifier buffer.
 func (t *TokenBuilder) WritePublicIdentifier(r rune) {
+	if t.publicID.String() == missing {
+		t.publicID.Reset()
+	}
 	_, err := t.publicID.WriteRune(r)
 	if err != nil {
 		fmt.Print(err)
 	}
 }
 
+//WritePublicIdentifierEmpty writes the empty string to the public ID.
+func (t *TokenBuilder) WritePublicIdentifierEmpty() {
+	t.publicID.Reset()
+}
+
+//WriteSystemIdentifierEmpty writes the empty string to the system ID.
+func (t *TokenBuilder) WriteSystemIdentifierEmpty() {
+	t.systemID.Reset()
+}
+
 // WriteSystemIdentifier appends a rune to the public identifier buffer.
 func (t *TokenBuilder) WriteSystemIdentifier(r rune) {
+	if t.systemID.String() == missing {
+		t.systemID.Reset()
+	}
 	_, err := t.systemID.WriteRune(r)
 	if err != nil {
 		fmt.Print(err)
@@ -189,22 +282,26 @@ func (t *TokenBuilder) TempBuffer() string {
 
 // SetCharRef sets the internal character reference count to zero.
 func (t *TokenBuilder) SetCharRef(i int) {
-	t.characterReferenceCode = i
+	t.characterReferenceCode = big.NewInt(int64(i))
 }
 
 // GetCharRef sets the internal character reference count to zero.
 func (t *TokenBuilder) GetCharRef() int {
-	return t.characterReferenceCode
+	return int(t.characterReferenceCode.Int64())
+}
+
+func (t *TokenBuilder) Cmp(i int) int {
+	return t.characterReferenceCode.Cmp(big.NewInt(int64(i)))
 }
 
 // AddToCharRef adds a number to the current char ref count.
 func (t *TokenBuilder) AddToCharRef(i int) {
-	t.characterReferenceCode += i
+	t.characterReferenceCode.Add(t.characterReferenceCode, big.NewInt(int64(i)))
 }
 
 // MultByCharRef multiplys a number to the current char ref count.
 func (t *TokenBuilder) MultByCharRef(i int) {
-	t.characterReferenceCode *= i
+	t.characterReferenceCode.Mul(t.characterReferenceCode, big.NewInt(int64(i)))
 
 }
 

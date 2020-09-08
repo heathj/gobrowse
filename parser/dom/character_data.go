@@ -2,12 +2,10 @@ package dom
 
 import "browser/parser/webidl"
 
-// https://dom.spec.whatwg.org/#characterdata
+// CharacterData is https://dom.spec.whatwg.org/#characterdata
 type CharacterData struct {
 	Data   webidl.DOMString
 	Length uint
-
-	*NodeFields
 }
 
 func (c *CharacterData) substringData(offset, count uint) webidl.DOMString     { return "" }

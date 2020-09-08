@@ -2,10 +2,9 @@ package dom
 
 import "browser/parser/webidl"
 
-//https://dom.spec.whatwg.org/#interface-comment
+// Comment is https://dom.spec.whatwg.org/#interface-comment
 type Comment struct {
 	*CharacterData
-	*NodeFields
 }
 
 // NewComment returns a comment node with its Data section filled.
@@ -18,7 +17,7 @@ func NewComment(data webidl.DOMString) *Comment {
 	}
 }
 
-// NewComment constructor with the default data section of empty string.
+// NewCommentDefault constructor with the default data section of empty string.
 func NewCommentDefault() *Comment {
 	return NewComment("")
 }

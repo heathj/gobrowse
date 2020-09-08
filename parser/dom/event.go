@@ -28,8 +28,8 @@ type Event struct {
 	timeStamp        webidl.DOMHighResTimeStamp
 }
 
-func (e *Event) composedPath() []EventTarget                           { return nil }
-func (e *Event) stopPropagation()                                      {}
-func (e *Event) stopImmediatePropagation()                             {}
-func (e *Event) preventDefault()                                       {}
-func (e *Event) initEvent(eventType webidl.DOMString, options ...bool) {}
+func (e *Event) ComposedPath() []EventTarget                           { return nil }
+func (e *Event) StopPropagation()                                      {}
+func (e *Event) StopImmediatePropagation()                             {}
+func (e *Event) PreventDefault()                                       {}
+func (e *Event) InitEvent(eventType webidl.DOMString, options ...bool) {}

@@ -1,7 +1,9 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -11,6 +13,14 @@ type tokenizerCountTestCase struct {
 }
 
 var tokenizerAccuracyTests = []tokenizerCountTestCase{
+	{"<!--->", []Token{
+		{TokenType: commentToken, Data: ""},
+		{TokenType: endOfFileToken},
+	}},
+	{"<!-->", []Token{
+		{TokenType: commentToken, Data: ""},
+		{TokenType: endOfFileToken},
+	}},
 	{"<head></head>", []Token{
 		{TokenType: startTagToken, TagName: "head"},
 		{TokenType: endTagToken, TagName: "head"},
@@ -145,7 +155,7 @@ func runTestTokenizerCountTests(tt tokenizerCountTestCase, t *testing.T) {
 	t.Run(tt.inHTML, func(t *testing.T) {
 		t.Parallel()
 		retChan := make(chan int, 1)
-		p, tc := NewHTMLTokenizer(tt.inHTML, nil)
+		p, tc, _ := NewHTMLTokenizer(tt.inHTML, nil)
 
 		go func(tc chan *Token, retChan chan int) {
 			i := 0
@@ -261,7 +271,7 @@ func runTestTokenizerAttributeAccuracy(tt tokezinerAttributeAccuracyTestcase, t 
 	t.Run(tt.inHTML, func(t *testing.T) {
 		t.Parallel()
 		retChan := make(chan *Token, 1)
-		p, tc := NewHTMLTokenizer(tt.inHTML, nil)
+		p, tc, _ := NewHTMLTokenizer(tt.inHTML, nil)
 
 		go func(tc chan *Token, retChan chan *Token) {
 			token := <-tc
@@ -865,7 +875,7 @@ func runStateParserTest(testcase stateMachineTestCase, t *testing.T) {
 	testName := fmt.Sprintf("%s-%#U", testcase.startingState, testcase.inRune)
 	t.Run(testName, func(t *testing.T) {
 		t.Parallel()
-		p, _ := NewHTMLTokenizer("", htmlParserConfig{debug: 0})
+		p, _, _ := NewHTMLTokenizer("", htmlParserConfig{debug: 0})
 
 		// when tokens are emitted, they are sent to a channel. we need
 		// to consume them so the tests don't block.
@@ -1038,7 +1048,7 @@ func runParserStatefulnessTest(testcase parserStatefulnessTestCase, t *testing.T
 	testName := fmt.Sprintf("%s-%s", testcase.startState, testcase.inHTML)
 	t.Run(testName, func(t *testing.T) {
 		t.Parallel()
-		p, _ := NewHTMLTokenizer(testcase.inHTML, htmlParserConfig{debug: 0})
+		p, _, _ := NewHTMLTokenizer(testcase.inHTML, htmlParserConfig{debug: 0})
 
 		// when tokens are emitted, they are sent to a channel. we need
 		// to consume them so the tests don't block.
@@ -1058,6 +1068,213 @@ func runParserStatefulnessTest(testcase parserStatefulnessTestCase, t *testing.T
 		answer, expected := testcase.testFunc(p)
 		if expected != answer {
 			t.Errorf("Expected %X, but got %X", expected, answer)
+		}
+	})
+}
+
+//TODO: implement these tests: https://github.com/html5lib/html5lib-test
+type HTML5Tests struct {
+	Tests []HTML5Test `json:"tests"`
+}
+
+type HTML5Test struct {
+	Description string          `json:"description"`
+	Input       string          `json:"input"`
+	Output      [][]interface{} `json:"output"`
+	Errors      []struct {
+		Code string `json:"code"`
+		Line int    `json:"line"`
+		Col  int    `json:"col"`
+	} `json:"errors,omitempty"`
+	InitialStates []string `json:"initialStates,omitempty"`
+}
+
+func TestHTML5Lib(t *testing.T) {
+	data, err := ioutil.ReadFile("./tests/tokenizer/test1.test")
+	if err != nil {
+		t.Error(err)
+	}
+	var tests *HTML5Tests
+	err = json.Unmarshal(data, &tests)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, test := range tests.Tests {
+		runHTML5Test(test, t)
+	}
+}
+
+func getInitState(state string) (tokenizerState, error) {
+	switch state {
+	case "Data state":
+		return dataState, nil
+	case "PLAINTEXT state":
+		return plaintextState, nil
+	case "RCDATA state":
+		return rcDataState, nil
+	case "RAWTEXT state":
+		return rawTextState, nil
+	case "Script data state":
+		return scriptDataState, nil
+	case "CDATA section state":
+		return cdataSectionState, nil
+	default:
+		return dataState, fmt.Errorf("invalid tokenizer state %s", state)
+	}
+}
+
+func formatOutputs(outputs [][]interface{}) []Token {
+	tb := newTokenBuilder()
+	tokens := []Token{}
+
+	publicID := missing
+	systemID := missing
+	var name string
+	for _, v := range outputs {
+		tb.NewToken()
+		if len(v) == 0 {
+			continue
+		}
+		switch v[0].(string) {
+		case "DOCTYPE":
+			if len(v) >= 2 {
+				if v[1] != nil {
+					name = v[1].(string)
+				}
+			}
+
+			if len(v) >= 3 && v[2] != nil {
+				publicID = v[2].(string)
+			}
+
+			if len(v) >= 4 && v[3] != nil {
+				systemID = v[3].(string)
+			}
+
+			correctness := v[4].(bool)
+			if !correctness {
+				tb.EnableForceQuirks()
+			}
+
+			for _, v := range name {
+				tb.WriteName(v)
+			}
+			if publicID == "" {
+				tb.WritePublicIdentifierEmpty()
+			} else if publicID != missing {
+				for _, v := range publicID {
+					tb.WritePublicIdentifier(v)
+				}
+			}
+
+			if systemID == "" {
+				tb.WriteSystemIdentifierEmpty()
+			} else if systemID != missing {
+				for _, v := range systemID {
+					tb.WriteSystemIdentifier(v)
+				}
+			}
+			tokens = append(tokens, tb.DocTypeToken())
+		case "StartTag":
+			if len(v) >= 2 && v[1] != nil {
+				for _, n := range v[1].(string) {
+					tb.WriteName(n)
+				}
+
+			}
+
+			if len(v) >= 3 && v[2] != nil {
+				for name, value := range v[2].(map[string]interface{}) {
+					for _, n := range name {
+						tb.WriteAttributeName(n)
+					}
+					for _, r := range value.(string) {
+						tb.WriteAttributeValue(r)
+					}
+					tb.CommitAttribute()
+				}
+			}
+
+			if len(v) >= 4 && v[3] != nil {
+				if v[3].(bool) {
+					tb.EnableSelfClosing()
+				}
+			}
+
+			tokens = append(tokens, tb.StartTagToken())
+		case "EndTag":
+			if len(v) >= 2 && v[1] != nil {
+				for _, r := range v[1].(string) {
+					tb.WriteName(r)
+				}
+			}
+
+			tokens = append(tokens, tb.EndTagToken())
+		case "Comment":
+			if len(v) >= 1 && v[1] != nil {
+				for _, r := range v[1].(string) {
+					tb.WriteData(r)
+				}
+			}
+			tokens = append(tokens, tb.CommentToken())
+		case "Character":
+			if len(v) >= 2 && v[1] != nil {
+				for _, r := range v[1].(string) {
+					tokens = append(tokens, tb.CharacterToken(r))
+				}
+			}
+		}
+	}
+	return tokens
+}
+
+func runHTML5Test(test HTML5Test, t *testing.T) {
+	t.Run(test.Description, func(t *testing.T) {
+		t.Parallel()
+		if len(test.InitialStates) == 0 {
+			test.InitialStates = []string{"Data state"}
+		}
+
+		for i := 0; i < len(test.InitialStates); i++ {
+			p, tc, _ := NewHTMLTokenizer(test.Input, htmlParserConfig{debug: 0})
+			errorChan := make(chan error, 5)
+			go func(tokenChan chan *Token, errorChan chan error, expectedTokens []Token) {
+				defer close(errorChan)
+				j := 0
+				for tok := range tokenChan {
+					if j >= len(expectedTokens) {
+						if tok.TokenType == endOfFileToken {
+							break
+						}
+						errorChan <- fmt.Errorf("Got too many tokens. Expected %d, tried for %d", len(expectedTokens), j+1)
+						break
+					}
+					if !tok.Equal(&expectedTokens[j]) {
+						errorChan <- fmt.Errorf("Got the wrong token. Expected %s, got %s", &expectedTokens[j], tok)
+					}
+					j++
+
+				}
+
+				if j != len(expectedTokens) {
+					errorChan <- fmt.Errorf("Got the wrong number of tokens. Expected %d, got %d", len(expectedTokens), j)
+				}
+			}(tc, errorChan, formatOutputs(test.Output))
+
+			initState, err := getInitState(test.InitialStates[i])
+			if err != nil {
+				t.Error(err)
+			}
+			go func() {
+				defer close(p.tokenChannel)
+				lastState := p.tokenizeUntilEOF(initState)
+				p.tokenizeEOF(lastState)
+			}()
+			for err := range errorChan {
+				t.Error(err)
+			}
 		}
 	})
 }

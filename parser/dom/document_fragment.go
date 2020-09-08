@@ -1,6 +1,5 @@
 package dom
 
-// https://dom.spec.whatwg.org/#documentfragment
+// DocumentFragment is https://dom.spec.whatwg.org/#documentfragment
 type DocumentFragment struct {
-	*NodeFields
 }

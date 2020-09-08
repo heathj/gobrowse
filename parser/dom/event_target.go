@@ -4,6 +4,6 @@ package dom
 type EventTarget struct {
 }
 
-func (et *EventTarget) addEventListener()    {}
-func (et *EventTarget) removeEventListener() {}
-func (et *EventTarget) dispatchEvent()       {}
+func (et *EventTarget) AddEventListener()    {}
+func (et *EventTarget) RemoveEventListener() {}
+func (et *EventTarget) DispatchEvent()       {}

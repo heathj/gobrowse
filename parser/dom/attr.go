@@ -2,7 +2,7 @@ package dom
 
 import "browser/parser/webidl"
 
-// https://dom.spec.whatwg.org/#attr
+// Attr is https://dom.spec.whatwg.org/#attr
 type Attr struct {
 	namespaceURI webidl.DOMString
 	prefix       webidl.DOMString
@@ -11,5 +11,4 @@ type Attr struct {
 	value        webidl.DOMString
 	ownerElement *Element
 	specified    bool
-	*NodeFields
 }

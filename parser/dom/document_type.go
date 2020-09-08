@@ -1,9 +1,10 @@
 package dom
 
-// https://dom.spec.whatwg.org/#documenttype
+import "browser/parser/webidl"
+
+// DocumentType is https://dom.spec.whatwg.org/#documenttype
 type DocumentType struct {
-	name     DOMString
-	publicId DOMString
-	systemId DOMString
-	*NodeFields
+	Name     webidl.DOMString
+	PublicID webidl.DOMString
+	SystemID webidl.DOMString
 }

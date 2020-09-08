@@ -1,0 +1,8 @@
+{"tests": [
+  {"description":"65-bit hex numeric entity",
+"input":"&#x10000000000000041;",
+"output":[["Character", "\uFFFD"]],
+"errors":[
+    { "code": "character-reference-outside-unicode-range", "line": 1, "col": 22 }
+]}
+]}

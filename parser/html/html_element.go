@@ -5,9 +5,9 @@ import (
 	"browser/parser/webidl"
 )
 
-type HTMLELement struct {
-	title, lang, dir, accessKey, accessKeyLabel, autocapitalize, innerText webidl.DOMString
-	translate, hidden, draggable, spellcheck                               bool
+type HTMLElement struct {
+	Title, Lang, Dir, AccessKey, AccessKeyLabel, Autocapitalize, InnerText webidl.DOMString
+	Translate, Hidden, Draggable, Spellcheck                               bool
 
 	*dom.Element
 	*GlobalEventHandlers
@@ -16,5 +16,5 @@ type HTMLELement struct {
 	*HTMLOrSVGElement
 }
 
-func (e *HTMLELement) attachInternals() ElementInternals { return nil }
-func (e *HTMLELement) click()                            {}
+func (e *HTMLElement) attachInternals() *ElementInternals { return nil }
+func (e *HTMLElement) click()                             {}

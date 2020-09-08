@@ -1,0 +1,309 @@
+#data
+<div bar="ZZgt;YY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>YY"
+
+#data
+<div bar="ZZ"></div>
+#errors
+(1,15): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ"
+
+#data
+<div bar='ZZ'></div>
+#errors
+(1,15): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ"
+
+#data
+<div bar=ZZ></div>
+#errors
+(1,13): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ"
+
+#data
+<div bar="ZZgt=YY"></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZgt=YY"
+
+#data
+<div bar="ZZgt0YY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZgt0YY"
+
+#data
+<div bar="ZZgt9YY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZgt9YY"
+
+#data
+<div bar="ZZgtaYY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZgtaYY"
+
+#data
+<div bar="ZZgtZYY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZgtZYY"
+
+#data
+<div bar="ZZgt YY"></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,20): expected-doctype-but-got-start-tag
+#new-errors
+(1:16) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ> YY"
+
+#data
+<div bar="ZZgt"></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,17): expected-doctype-but-got-start-tag
+#new-errors
+(1:16) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>"
+
+#data
+<div bar='ZZgt'></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,17): expected-doctype-but-got-start-tag
+#new-errors
+(1:16) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>"
+
+#data
+<div bar=ZZgt></div>
+#errors
+(1,14): named-entity-without-semicolon
+(1,15): expected-doctype-but-got-start-tag
+#new-errors
+(1:15) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>"
+
+#data
+<div bar="ZZpound_id=23"></div>
+#errors
+(1,18): named-entity-without-semicolon
+(1,26): expected-doctype-but-got-start-tag
+#new-errors
+(1:19) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ£_id=23"
+
+#data
+<div bar="ZZprod_id=23"></div>
+#errors
+(1,25): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZprod_id=23"
+
+#data
+<div bar="ZZpound;_id=23"></div>
+#errors
+(1,27): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ£_id=23"
+
+#data
+<div bar="ZZprod;_id=23"></div>
+#errors
+(1,26): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ∏_id=23"
+
+#data
+<div bar="ZZpound=23"></div>
+#errors
+(1,18): named-entity-without-semicolon
+(1,23): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZpound=23"
+
+#data
+<div bar="ZZprod=23"></div>
+#errors
+(1,22): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZprod=23"
+
+#data
+<div>ZZpound_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,13): named-entity-without-semicolon
+#new-errors
+(1:14) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£_id=23"
+
+#data
+<div>ZZprod_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZprod_id=23"
+
+#data
+<div>ZZpound;_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£_id=23"
+
+#data
+<div>ZZprod;_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ∏_id=23"
+
+#data
+<div>ZZpound=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,13): named-entity-without-semicolon
+#new-errors
+(1:14) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£=23"
+
+#data
+<div>ZZprod=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZprod=23"
+
+#data
+<div>ZZAElig=</div>
+#errors
+#new-errors
+(1:14) missing-semicolon-after-character-reference
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZÆ="
