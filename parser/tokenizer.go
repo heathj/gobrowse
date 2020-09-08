@@ -145,7 +145,7 @@ func (p *HTMLTokenizer) inHTMLNamepsace() bool {
 }
 
 func isNonCharacter(code int) bool {
-	if code >= 0xFDD0 || code <= 0xFDEF {
+	if code >= 0xFDD0 && code <= 0xFDEF {
 		return true
 	}
 
@@ -211,14 +211,7 @@ func (p *HTMLTokenizer) flushCodePointsAsCharacterReference() {
 }
 
 func (p *HTMLTokenizer) isApprEndTagToken() bool {
-	if p.lastEmittedStartTagName == "" {
-		return false
-	}
-	if p.lastEmittedStartTagName == p.tokenBuilder.name.String() {
-		return true
-	}
-
-	return false
+	return p.lastEmittedStartTagName == p.tokenBuilder.name.String()
 }
 
 func (p *HTMLTokenizer) emit(tok Token) {
@@ -236,6 +229,8 @@ func (p *HTMLTokenizer) emit(tok Token) {
 			logError(endTagWithTrailingSolidus)
 			tok.SelfClosing = false
 		}
+	} else if tok.TokenType == startTagToken {
+		p.lastEmittedStartTagName = tok.TagName
 	}
 	p.tokenChannel <- &tok
 }
@@ -416,11 +411,15 @@ func (p *HTMLTokenizer) rcDataLessThanSignStateParser(r rune) (bool, tokenizerSt
 		return true, rcDataState, noError
 	}
 }
+
+func (p *HTMLTokenizer) defaultRcDataEndTagOpenStateParser() (bool, tokenizerState, parseError) {
+	p.emit(p.tokenBuilder.CharacterToken('<'))
+	p.emit(p.tokenBuilder.CharacterToken('/'))
+	return true, rcDataState, noError
+}
 func (p *HTMLTokenizer) rcDataEndTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
 	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('/'))
-		return true, rcDataState, noError
+		return p.defaultRcDataEndTagOpenStateParser()
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -428,8 +427,7 @@ func (p *HTMLTokenizer) rcDataEndTagOpenStateParser(r rune) (bool, tokenizerStat
 		p.tokenBuilder.curTagType = endTag
 		return true, rcDataEndTagNameState, noError
 	default:
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rcDataState, noError
+		return p.defaultRcDataEndTagOpenStateParser()
 	}
 }
 
@@ -489,10 +487,16 @@ func (p *HTMLTokenizer) rawTextLessThanSignStateParser(r rune) (bool, tokenizerS
 		return true, rawTextState, noError
 	}
 }
+
+func (p *HTMLTokenizer) defaultRawTextEndTagOpenStateParser() (bool, tokenizerState, parseError) {
+	p.emit(p.tokenBuilder.CharacterToken('<'))
+	p.emit(p.tokenBuilder.CharacterToken('/'))
+	return true, rawTextState, noError
+}
+
 func (p *HTMLTokenizer) rawTextEndTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
 	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rawTextState, noError
+		return p.defaultRawTextEndTagOpenStateParser()
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -500,8 +504,7 @@ func (p *HTMLTokenizer) rawTextEndTagOpenStateParser(r rune) (bool, tokenizerSta
 		p.tokenBuilder.curTagType = endTag
 		return true, rawTextEndTagNameState, noError
 	default:
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rawTextState, noError
+		return p.defaultRawTextEndTagOpenStateParser()
 	}
 }
 
@@ -703,6 +706,7 @@ func (p *HTMLTokenizer) scriptDataEscapedDashDashStateParser(r rune) (bool, toke
 		p.emit(p.tokenBuilder.CharacterToken('>'))
 		return false, scriptDataState, noError
 	case '\u0000':
+		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
 		return false, scriptDataEscapedState, unexpectedNullCharacter
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
@@ -736,6 +740,7 @@ func (p *HTMLTokenizer) scriptDataEscapedEndTagOpenStateParser(r rune) (bool, to
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
+		p.tokenBuilder.curTagType = endTag
 		return true, scriptDataEscapedEndTagNameState, noError
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
@@ -1940,7 +1945,6 @@ func (p *HTMLTokenizer) ambiguousAmpersandStateParser(r rune) (bool, tokenizerSt
 	}
 }
 func (p *HTMLTokenizer) numericCharacterReferenceStateParser(r rune) (bool, tokenizerState, parseError) {
-
 	p.tokenBuilder.SetCharRef(0)
 	if p.isEndOfFile() {
 		return true, decimalCharacterReferenceStartState, noError
@@ -2067,7 +2071,6 @@ func (p *HTMLTokenizer) numericCharacterReferenceEndStateParser(r rune) (bool, t
 	} else if p.tokenBuilder.Cmp(0x0D) == 0 ||
 		(isControl(p.tokenBuilder.GetCharRef())) && !isASCIIWhitespace(p.tokenBuilder.GetCharRef()) {
 		err = controlCharacterReference
-
 		tableNum, ok := numericCharacterReferenceEndStateTable[p.tokenBuilder.GetCharRef()]
 		if ok {
 			p.tokenBuilder.SetCharRef(int(tableNum))

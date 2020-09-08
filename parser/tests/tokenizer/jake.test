@@ -1,8 +1,8 @@
 {"tests": [
-  {"description":"65-bit hex numeric entity",
-"input":"&#x10000000000000041;",
-"output":[["Character", "\uFFFD"]],
+{"description": "Windows-1252 EURO SIGN numeric entity.",
+"input":"&#0128;",
+"output": [["Character", "\u20AC"]],
 "errors":[
-    { "code": "character-reference-outside-unicode-range", "line": 1, "col": 22 }
+    { "code": "control-character-reference", "line": 1, "col": 8 }
 ]}
 ]}

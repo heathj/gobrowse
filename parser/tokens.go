@@ -43,7 +43,7 @@ func (t *Token) String() string {
 	switch t.TokenType {
 	case characterToken, commentToken:
 		return fmt.Sprintf(`Token: %s:
-	Data: %s
+	Data: %q
 `, t.TokenType, t.Data)
 	case startTagToken, endTagToken:
 		return fmt.Sprintf(`Token: %s:
@@ -135,7 +135,8 @@ type TokenBuilder struct {
 
 func newTokenBuilder() *TokenBuilder {
 	return &TokenBuilder{
-		attributes: make(map[string]string),
+		attributes:             make(map[string]string),
+		characterReferenceCode: big.NewInt(0),
 	}
 }
 
@@ -155,6 +156,7 @@ func (t *TokenBuilder) NewToken() {
 	t.selfClosing = false
 	t.forceQuirks = false
 	t.removeNextAttr = false
+	t.characterReferenceCode = big.NewInt(0)
 }
 
 // EnableSelfClosing changes to the self-closing flag to "set".

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -1078,10 +1081,12 @@ type HTML5Tests struct {
 }
 
 type HTML5Test struct {
-	Description string          `json:"description"`
-	Input       string          `json:"input"`
-	Output      [][]interface{} `json:"output"`
-	Errors      []struct {
+	Description   string          `json:"description"`
+	Input         string          `json:"input"`
+	Output        [][]interface{} `json:"output"`
+	DoubleEscaped bool            `json:doubleEscaped`
+	LastStartTag  string          `json:lastStartTag`
+	Errors        []struct {
 		Code string `json:"code"`
 		Line int    `json:"line"`
 		Col  int    `json:"col"`
@@ -1090,18 +1095,36 @@ type HTML5Test struct {
 }
 
 func TestHTML5Lib(t *testing.T) {
-	data, err := ioutil.ReadFile("./tests/tokenizer/test1.test")
-	if err != nil {
-		t.Error(err)
+	allTests := &HTML5Tests{
+		Tests: make([]HTML5Test, 0),
 	}
-	var tests *HTML5Tests
-	err = json.Unmarshal(data, &tests)
+	dir := "./tests/tokenizer/"
+	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		t.Error(err)
-		return
 	}
 
-	for _, test := range tests.Tests {
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".test") {
+			continue
+		}
+		path := filepath.Join(dir, file.Name())
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			t.Error(err)
+		}
+
+		var tests *HTML5Tests
+		err = json.Unmarshal(data, &tests)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		allTests.Tests = append(allTests.Tests, tests.Tests...)
+	}
+
+	for _, test := range allTests.Tests {
 		runHTML5Test(test, t)
 	}
 }
@@ -1125,7 +1148,19 @@ func getInitState(state string) (tokenizerState, error) {
 	}
 }
 
-func formatOutputs(outputs [][]interface{}) []Token {
+func formatString(v interface{}, de bool) string {
+	if de {
+		s, err := doubleEscape(v.(string))
+		if err != nil {
+			return ""
+		}
+		return s
+	}
+
+	return v.(string)
+}
+
+func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 	tb := newTokenBuilder()
 	tokens := []Token{}
 
@@ -1141,16 +1176,16 @@ func formatOutputs(outputs [][]interface{}) []Token {
 		case "DOCTYPE":
 			if len(v) >= 2 {
 				if v[1] != nil {
-					name = v[1].(string)
+					name = formatString(v[1], doubleEscape)
 				}
 			}
 
 			if len(v) >= 3 && v[2] != nil {
-				publicID = v[2].(string)
+				publicID = formatString(v[2], doubleEscape)
 			}
 
 			if len(v) >= 4 && v[3] != nil {
-				systemID = v[3].(string)
+				systemID = formatString(v[3], doubleEscape)
 			}
 
 			correctness := v[4].(bool)
@@ -1206,7 +1241,8 @@ func formatOutputs(outputs [][]interface{}) []Token {
 			tokens = append(tokens, tb.StartTagToken())
 		case "EndTag":
 			if len(v) >= 2 && v[1] != nil {
-				for _, r := range v[1].(string) {
+				s := formatString(v[1], doubleEscape)
+				for _, r := range s {
 					tb.WriteName(r)
 				}
 			}
@@ -1214,14 +1250,16 @@ func formatOutputs(outputs [][]interface{}) []Token {
 			tokens = append(tokens, tb.EndTagToken())
 		case "Comment":
 			if len(v) >= 1 && v[1] != nil {
-				for _, r := range v[1].(string) {
+				s := formatString(v[1], doubleEscape)
+				for _, r := range s {
 					tb.WriteData(r)
 				}
 			}
 			tokens = append(tokens, tb.CommentToken())
 		case "Character":
 			if len(v) >= 2 && v[1] != nil {
-				for _, r := range v[1].(string) {
+				s := formatString(v[1], doubleEscape)
+				for _, r := range s {
 					tokens = append(tokens, tb.CharacterToken(r))
 				}
 			}
@@ -1230,13 +1268,34 @@ func formatOutputs(outputs [][]interface{}) []Token {
 	return tokens
 }
 
+func doubleEscape(s string) (string, error) {
+	ns := strconv.QuoteToASCII(s)
+	rs := strings.ReplaceAll(ns, "\\\\", "\\")
+
+	n, err := strconv.Unquote(rs)
+	if err != nil {
+		return s, err
+	}
+
+	return n, nil
+}
+
 func runHTML5Test(test HTML5Test, t *testing.T) {
 	t.Run(test.Description, func(t *testing.T) {
 		t.Parallel()
+		if test.DoubleEscaped {
+			var err error
+			test.Input, err = doubleEscape(test.Input)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+		}
+
 		if len(test.InitialStates) == 0 {
 			test.InitialStates = []string{"Data state"}
 		}
-
+		o := formatOutputs(test.Output, test.DoubleEscaped)
 		for i := 0; i < len(test.InitialStates); i++ {
 			p, tc, _ := NewHTMLTokenizer(test.Input, htmlParserConfig{debug: 0})
 			errorChan := make(chan error, 5)
@@ -1261,11 +1320,14 @@ func runHTML5Test(test HTML5Test, t *testing.T) {
 				if j != len(expectedTokens) {
 					errorChan <- fmt.Errorf("Got the wrong number of tokens. Expected %d, got %d", len(expectedTokens), j)
 				}
-			}(tc, errorChan, formatOutputs(test.Output))
+			}(tc, errorChan, o)
 
 			initState, err := getInitState(test.InitialStates[i])
 			if err != nil {
 				t.Error(err)
+			}
+			if test.LastStartTag != "" {
+				p.lastEmittedStartTagName = test.LastStartTag
 			}
 			go func() {
 				defer close(p.tokenChannel)
