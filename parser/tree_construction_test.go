@@ -1,12 +1,12 @@
 package parser
 
 import (
-	"browser/parser/dom"
+	"browser/parser/spec"
 	"testing"
 )
 
 // compareDocuments returns true if the two documents are the same and false otherwise.
-func compareDocuments(a, b *dom.Node) bool {
+func compareDocuments(a, b *spec.Node) bool {
 	if len(a.ChildNodes) != len(b.ChildNodes) {
 		return false
 	}
@@ -24,7 +24,7 @@ func compareDocuments(a, b *dom.Node) bool {
 	return true
 }
 
-func compareNodes(a, b *dom.Node) bool {
+func compareNodes(a, b *spec.Node) bool {
 	if !a.IsEqualNode(b) {
 		return false
 	}
@@ -50,7 +50,7 @@ func compareNodes(a, b *dom.Node) bool {
 
 type documentBuilderAccuracyTestCase struct {
 	inHTML      string
-	outDocument *dom.Node
+	outDocument *spec.Node
 }
 
 var documentBuilderAccuracyTests = []documentBuilderAccuracyTestCase{
@@ -63,37 +63,37 @@ var documentBuilderAccuracyTests = []documentBuilderAccuracyTestCase{
 	</html>`, makeBTestCase()},
 }
 
-func makeBTestCase() *dom.Node {
-	text := &dom.Node{
-		NodeType:  dom.TextNode,
+func makeBTestCase() *spec.Node {
+	text := &spec.Node{
+		NodeType:  spec.TextNode,
 		NodeValue: "JAKE",
 	}
-	b := &dom.Node{
-		NodeType:   dom.ElementNode,
+	b := &spec.Node{
+		NodeType:   spec.ElementNode,
 		NodeName:   "B",
-		ChildNodes: dom.NodeList{text},
+		ChildNodes: spec.NodeList{text},
 		FirstChild: text,
 		LastChild:  text,
 	}
-	body := &dom.Node{
-		NodeType:   dom.ElementNode,
+	body := &spec.Node{
+		NodeType:   spec.ElementNode,
 		NodeName:   "BODY",
-		ChildNodes: dom.NodeList{b},
+		ChildNodes: spec.NodeList{b},
 		FirstChild: b,
 		LastChild:  b,
 	}
-	head := &dom.Node{
-		NodeType:    dom.ElementNode,
+	head := &spec.Node{
+		NodeType:    spec.ElementNode,
 		NodeName:    "HEAD",
 		NextSibling: body,
 	}
-	doc := &dom.Node{
-		NodeType:    dom.DocumentTypeNode,
+	doc := &spec.Node{
+		NodeType:    spec.DocumentTypeNode,
 		NodeName:    "DOCTYPE",
 		NextSibling: body,
 	}
-	dom := &dom.Node{
-		ChildNodes: dom.NodeList{
+	dom := &spec.Node{
+		ChildNodes: spec.NodeList{
 			doc, head, body,
 		},
 	}
