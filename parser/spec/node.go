@@ -4,6 +4,26 @@ import (
 	"browser/parser/webidl"
 )
 
+func Contains(n *Node, h *[]*Node) int {
+	for i := range *h {
+		if n == (*h)[i] {
+			return i
+		}
+	}
+	return -1
+}
+
+func Remove(i int, h *[]*Node) {
+	if i == -1 {
+		return
+	}
+	*h = append((*h)[:i], (*h)[i+1:]...)
+}
+
+func Pop(h *[]*Node) {
+	*h = (*h)[:len((*h))-1]
+}
+
 type NodeType uint16
 
 const (
@@ -124,7 +144,7 @@ func (n *Node) IsEqualNode(on *Node) bool {
 
 	switch n.NodeType {
 	case DocumentTypeNode:
-		if n.Name != on.Name || n.PublicID != on.PublicID || n.SystemID != on.SystemID {
+		if n.DocumentType.Name != on.DocumentType.Name || n.PublicID != on.PublicID || n.SystemID != on.SystemID {
 			return false
 		}
 	case ElementNode:

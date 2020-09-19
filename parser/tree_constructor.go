@@ -143,6 +143,48 @@ func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertionDefault() *spec.Nod
 	return c.getCurrentNode().LastChild
 }
 
+func (c *HTMLTreeConstructor) elementInSpecificScope(target *spec.Node, list []webidl.DOMString) bool {
+	for i := len(c.stackOfOpenElements) - 1; i >= 0; i-- {
+		entry := c.stackOfOpenElements[i]
+		if target == entry {
+			return true
+		}
+
+		for _, name := range list {
+			if entry.NodeName == name {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
+func (c *HTMLTreeConstructor) elementInScope(target *spec.Node) bool {
+	list := []webidl.DOMString{
+		"applet",
+		"caption",
+		"html",
+		"table",
+		"td",
+		"th",
+		"marquee",
+		"object",
+		"template",
+		"mi",
+		"mo",
+		"mn",
+		"ms",
+		"mtext",
+		"annotation-xml",
+		"foreignObject",
+		"desc",
+		"title",
+	}
+
+	return c.elementInSpecificScope(target, list)
+}
+
 func (c *HTMLTreeConstructor) insertionTableSubSteps() *spec.Node {
 	/*var lastTemplate *html.HTMLTemplateElement
 	var lastTemplateI int
@@ -311,16 +353,6 @@ func (c *HTMLTreeConstructor) useRulesFor(t *Token, returnState, expectedState i
 	return reprocess, expectedState, err
 }
 
-func contains(n *spec.Node, h spec.NodeList) bool {
-	// since we aren't copying and using the pointer values, I think this should work
-	for _, node := range h {
-		if n == node {
-			return false
-		}
-	}
-	return true
-}
-
 func compareLastN(n int, elems spec.NodeList, elem *spec.Node) bool {
 	last := len(elems) - 1
 	lastElem := elems[last]
@@ -374,7 +406,171 @@ func (c *HTMLTreeConstructor) pushActiveFormattingElements(elem *spec.Node) {
 	}
 
 	c.activeFormattingElements = append(c.activeFormattingElements, elem)
+}
 
+func isSpecial(n *spec.Node) bool {
+	switch n.NodeName {
+	case "address", "applet", "area", "article", "aside", "base", "basefont", "bgsound", "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "dd", "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "iframe", "img", "input", "keygen", "li", "link", "listing", "main", "marquee", "menu", "meta", "nav", "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script", "section", "select", "source", "style", "summary", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "tr", "track", "ul", "wbr", "mi", "mo", "mn", "ms", "mtext", "annotation-xml", "foreignObject", "desc", "title":
+		return true
+	}
+	return false
+}
+
+func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseError) {
+	var err parseError
+	cur := c.getCurrentNode()
+	if cur.TagName == webidl.DOMString(t.TagName) && spec.Contains(cur, &c.activeFormattingElements) == -1 {
+		spec.Pop(&c.stackOfOpenElements)
+		return false, noError
+	}
+
+	// outer loop
+	var y, z, si, nif, nis int
+	var formattingElement, furthestBlock *spec.Node
+	for x := 0; x < 8; x++ {
+		// 6
+		for y = len(c.activeFormattingElements) - 1; y >= 0; y-- {
+			if c.activeFormattingElements[y].TagName == webidl.DOMString(t.TagName) {
+				formattingElement = c.activeFormattingElements[y]
+			}
+
+			if c.activeFormattingElements[y].NodeType == spec.ScopeMarkerNode {
+				break
+			}
+		}
+
+		if formattingElement == nil {
+			return true, noError
+		}
+
+		// 7
+		si = spec.Contains(formattingElement, &c.stackOfOpenElements)
+		if si == -1 {
+			// parse error
+			spec.Remove(y, &c.activeFormattingElements)
+			return false, noError
+		}
+
+		// 8
+		if !c.elementInScope(formattingElement) {
+			// parse error
+			return false, generalParseError
+		}
+
+		// 9
+		if formattingElement != c.getCurrentNode() {
+			err = generalParseError
+		}
+
+		// 10
+		for z = y + 1; z < len(c.activeFormattingElements); z++ {
+			if isSpecial(c.activeFormattingElements[z]) {
+				furthestBlock = c.activeFormattingElements[z]
+				break
+			}
+		}
+
+		// 11
+		if furthestBlock == nil {
+			for {
+				if c.getCurrentNode() == formattingElement {
+					spec.Pop(&c.stackOfOpenElements)
+					spec.Remove(y, &c.activeFormattingElements)
+					return false, noError
+				}
+				spec.Pop(&c.stackOfOpenElements)
+			}
+		}
+
+		// 12
+		ca := c.stackOfOpenElements[si-1]
+		// 13
+		bm := c.activeFormattingElements[y]
+
+		//14 inner loop
+		node := furthestBlock
+		lastNode := furthestBlock
+		for a := 1; ; a++ {
+			z--
+			// 14.3
+			node = c.stackOfOpenElements[z]
+
+			// 14.4
+			if node == formattingElement {
+				break
+			}
+
+			// 14.5
+			if a > 3 {
+				spec.Remove(spec.Contains(node, &c.activeFormattingElements), &c.activeFormattingElements)
+			}
+
+			// 14.6
+			if spec.Contains(node, &c.activeFormattingElements) != -1 {
+				spec.Remove(spec.Contains(node, &c.stackOfOpenElements), &c.stackOfOpenElements)
+				continue
+			}
+
+			// 14.7
+			elem := c.createElementForToken(t, "html", ca)
+			nif = spec.Contains(node, &c.activeFormattingElements)
+			if nif != -1 {
+				c.activeFormattingElements[nif] = elem
+			}
+			nis = spec.Contains(node, &c.stackOfOpenElements)
+			if nis != -1 {
+				c.stackOfOpenElements[nis] = elem
+			}
+
+			// 14.8
+			if lastNode == furthestBlock {
+				bm = c.activeFormattingElements[nif+1]
+			}
+			// 14.9
+			lastNode.ParentNode.RemoveChild(lastNode)
+			node.AppendChild(lastNode)
+			// 14.10
+			lastNode = node
+		}
+
+		// 15
+		ca.AppendChild(lastNode)
+
+		// 16
+		clone := formattingElement.CloneNode(true)
+		clone.ParentNode = furthestBlock
+		// 17
+		for _, child := range furthestBlock.ChildNodes {
+			clone.AppendChild(child)
+		}
+		// 18
+		furthestBlock.AppendChild(clone)
+		// 19
+		f := spec.Contains(formattingElement, &c.activeFormattingElements)
+		if f != -1 {
+			spec.Remove(f, &c.activeFormattingElements)
+			b := spec.Contains(bm, &c.activeFormattingElements)
+			if b != 1 {
+				c.activeFormattingElements[b] = clone
+			}
+		}
+
+		//20
+		f = spec.Contains(formattingElement, &c.stackOfOpenElements)
+		if f != -1 {
+			spec.Remove(f, &c.stackOfOpenElements)
+			b := spec.Contains(furthestBlock, &c.stackOfOpenElements)
+			if b != -1 {
+				if b+1 == len(c.stackOfOpenElements) {
+					c.stackOfOpenElements = append(c.stackOfOpenElements, clone)
+				} else {
+					c.stackOfOpenElements[b+1] = clone
+				}
+			}
+		}
+	}
+
+	return false, err
 }
 
 func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
@@ -389,7 +585,8 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	// to reconstruct; stop this algorithm.
 	last := len(c.activeFormattingElements) - 1
 	lafe := c.activeFormattingElements[last]
-	if lafe.NodeType == spec.ScopeMarkerNode || contains(lafe, c.stackOfOpenElements) {
+	doesContain := spec.Contains(lafe, &c.stackOfOpenElements)
+	if lafe.NodeType == spec.ScopeMarkerNode || doesContain != -1 {
 		return
 	}
 
@@ -403,8 +600,8 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	for ; i >= 0; i-- {
 		// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
 		// go to the step labeled rewind.
-		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode ||
-			contains(c.activeFormattingElements[i], c.stackOfOpenElements) {
+		doesContain := spec.Contains(c.activeFormattingElements[i], &c.stackOfOpenElements)
+		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
 			break
 		}
 	}
@@ -438,16 +635,6 @@ func (c *HTMLTreeConstructor) clearStackBackToTable() {
 		}
 	}*/
 }
-
-/*
-func (c *HTMLTreeConstructor) openElementsInTableScope(elem spec\.ElementType) bool {
-	return false
-}*/
-
-/*
-func (c *HTMLTreeConstructor) resetInsertionMode() insertionMode {
-
-}*/
 
 const w30DTDW3HTMLStrict3En string = "-//W3O//DTD W3 HTML Strict 3.0//EN//"
 const w3cDTDHTML4TransitionalEN string = "-/W3C/DTD HTML 4.0 Transitional/EN"
@@ -899,6 +1086,11 @@ func (c *HTMLTreeConstructor) afterHeadModeHandler(t *Token) (bool, insertionMod
 	}
 	return c.defaultAfterHeadModeHandler(t)
 }
+
+func (c *HTMLTreeConstructor) defaultInBodyModeHandler(t *Token) (bool, insertionMode, parseError) {
+	return false, inBody, noError
+}
+
 func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, parseError) {
 	err := noError
 	switch t.TokenType {
@@ -979,12 +1171,17 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "h1", "h2", "h3", "h4", "h5", "h6":
 		case "sarcasm":
 		case "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u":
-			c.adoptionAgencyAlgorithm()
+			var shouldDefault bool
+			shouldDefault, err = c.adoptionAgencyAlgorithm(t)
+			if shouldDefault {
+				a, b, _ := c.defaultInBodyModeHandler(t)
+				return a, b, err
+			}
 			return false, inBody, err
 		case "applet", "marquee", "object":
 		case "br":
 		default:
-
+			return c.defaultInBodyModeHandler(t)
 		}
 
 		return false, inBody, err
