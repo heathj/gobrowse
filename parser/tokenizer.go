@@ -2245,7 +2245,10 @@ const (
 // rune values with a for/range (go by default pulls utf-8 characters and produces runes
 // on each iteration, so we may need to switch this if we want to support other uncoding types)
 func (p *HTMLTokenizer) Tokenize() {
-	defer close(p.tokenChannel)
+	defer func() {
+		close(p.tokenChannel)
+		p.wg.Done()
+	}()
 	lastState := p.tokenizeUntilEOF(dataState)
 	p.tokenizeEOF(lastState)
 }
@@ -2275,7 +2278,6 @@ func (p *HTMLTokenizer) normalizeNewlines(r rune) rune {
 // machine. It also doesn't process the EOF states, which does a lot of cleanup and allows
 // us to test how certain characters affect the tokenbuilder.
 func (p *HTMLTokenizer) tokenizeUntilEOF(nextState tokenizerState) tokenizerState {
-	p.wg.Add(1)
 	defer p.wg.Done()
 	var (
 		reconsume bool

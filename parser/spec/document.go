@@ -61,7 +61,3 @@ func (d *Document) CreateNodeIterator(root *Node, whatToShow uint, filter NodeFi
 func (d *Document) CreateTreeWalker(root *Node, whatToShow uint, filter NodeFilter) *TreeWalker {
 	return nil
 }
-
-func (d *Document) String() string {
-	return ""
-}

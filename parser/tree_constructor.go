@@ -3,6 +3,8 @@ package parser
 import (
 	"browser/parser/spec"
 	"browser/parser/webidl"
+	"fmt"
+	de "runtime/debug"
 	"strings"
 	"sync"
 )
@@ -81,7 +83,7 @@ const (
 func NewHTMLTreeConstructor(c chan *Token, wg *sync.WaitGroup) *HTMLTreeConstructor {
 	tr := HTMLTreeConstructor{
 		tokenChannel: c,
-		HTMLDocument: &spec.HTMLDocument{},
+		HTMLDocument: spec.NewHTMLDocumentNode(),
 		wg:           wg,
 	}
 
@@ -140,7 +142,7 @@ func (c *HTMLTreeConstructor) insertComment(t *Token) {
 
 // https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node
 func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertionDefault() *spec.Node {
-	return c.getCurrentNode().LastChild
+	return c.getCurrentNode()
 }
 
 func (c *HTMLTreeConstructor) elementInSpecificScope(target *spec.Node, list []webidl.DOMString) bool {
@@ -264,6 +266,13 @@ func (c *HTMLTreeConstructor) lookUpCustomElementDefinition(document *spec.Node,
 	return nil
 }
 
+// https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing
+func (c *HTMLTreeConstructor) stopParsing() {
+	for len(c.stackOfOpenElements) > 0 {
+		spec.Pop(&c.stackOfOpenElements)
+	}
+}
+
 //https://dom.spec.whatwg.org/#concept-create-element
 func (c *HTMLTreeConstructor) createElement(document *spec.Document, localName string, ns namespace, optionals ...string) *spec.HTMLElement {
 	/*prefix := ""
@@ -317,15 +326,15 @@ func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns webidl.DOMStrin
 
 func (c *HTMLTreeConstructor) insertCharacter(t *Token) {
 	loc := c.getAppropriatePlaceForInsertionDefault()
-	if loc != nil && loc.ParentNode.NodeType == spec.DocumentNode {
+	if loc != nil && loc.NodeType == spec.DocumentNode {
 		return
 	}
 
-	if loc.NodeType == spec.TextNode {
-		loc.Text.CharacterData.Data += webidl.DOMString(t.Data)
+	if loc.LastChild != nil && loc.LastChild.NodeType == spec.TextNode {
+		loc.LastChild.Text.CharacterData.Data += webidl.DOMString(t.Data)
 	} else {
 		tn := spec.NewTextNode(loc.OwnerDocument, t.Data)
-		loc.ParentNode.AppendChild(tn)
+		loc.AppendChild(tn)
 	}
 
 }
@@ -337,7 +346,7 @@ func (c *HTMLTreeConstructor) insertHTMLElementForToken(t *Token) *spec.Node {
 func (c *HTMLTreeConstructor) insertForeignElementForToken(t *Token, namespace webidl.DOMString) *spec.Node {
 	loc := c.getAppropriatePlaceForInsertionDefault()
 	elem := c.createElementForToken(t, namespace, loc)
-	loc.ParentNode.AppendChild(elem)
+	loc.AppendChild(elem)
 	c.stackOfOpenElements = append(c.stackOfOpenElements, elem)
 	return elem
 }
@@ -834,13 +843,12 @@ func (c *HTMLTreeConstructor) initialModeHandler(t *Token) (bool, insertionMode,
 			t.PublicIdentifier != missing ||
 			(t.SystemIdentifier != missing &&
 				t.SystemIdentifier != "about:legacy-compat") {
-			//TODO: just says this was a parse error?
 			err = generalParseError
 		}
 
 		doctype := spec.NewDocTypeNode(t.TagName, t.PublicIdentifier, t.SystemIdentifier)
 		c.HTMLDocument.AppendChild(doctype)
-		c.HTMLDocument.Doctype = doctype
+		c.HTMLDocument.Node.Document.Doctype = doctype
 
 		if c.isForceQuirks(t) {
 			c.quirksMode = quirks
@@ -1091,6 +1099,16 @@ func (c *HTMLTreeConstructor) defaultInBodyModeHandler(t *Token) (bool, insertio
 	return false, inBody, noError
 }
 
+func containedIn(s webidl.DOMString, h []webidl.DOMString) bool {
+	for _, t := range h {
+		if s == t {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, parseError) {
 	err := noError
 	switch t.TokenType {
@@ -1162,6 +1180,42 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		switch t.TagName {
 		case "template":
 		case "body":
+			target := &spec.Node{
+				NodeType: spec.ElementNode,
+				NodeName: "body",
+			}
+			if !c.elementInScope(target) {
+				return false, inBody, generalParseError
+			}
+
+			ls := []webidl.DOMString{
+				"dd",
+				"dt",
+				"li",
+				"optgroup",
+				"option",
+				"p",
+				"rb",
+				"rp",
+				"rt",
+				"rtc",
+				"tbody",
+				"td",
+				"tfoot",
+				"th",
+				"thead",
+				"tr",
+				"body",
+				"html",
+			}
+			e := noError
+			for _, s := range c.stackOfOpenElements {
+				if !containedIn(s.TagName, ls) {
+					e = generalParseError
+				}
+			}
+
+			return false, afterBody, e
 		case "html":
 		case "address", "article", "aside", "blockquote", "button", "center", "details", "dialog", "dir", "div", "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "listing", "main", "menu", "nav", "ol", "pre", "section", "summary", "ul":
 		case "form":
@@ -1404,6 +1458,12 @@ func (c *HTMLTreeConstructor) afterBodyModeHandler(t *Token) (bool, insertionMod
 	case docTypeToken:
 	case startTagToken:
 	case endTagToken:
+		if t.TagName == "html" {
+			if c.createdBy == htmlFragmentParsingAlgorithm {
+				return false, afterBody, generalParseError
+			}
+			return false, afterAfterBody, noError
+		}
 	default:
 	}
 	return false, initial, noError
@@ -1446,6 +1506,9 @@ func (c *HTMLTreeConstructor) afterAfterFramesetModeHandler(t *Token) (bool, ins
 	case characterToken:
 	case commentToken:
 	case docTypeToken:
+	case endOfFileToken:
+		c.stopParsing()
+		return false, stopParser, noError
 	case startTagToken:
 	case endTagToken:
 	default:
@@ -1453,6 +1516,7 @@ func (c *HTMLTreeConstructor) afterAfterFramesetModeHandler(t *Token) (bool, ins
 	return false, initial, noError
 }
 
+//go:generate stringer -type=insertionMode
 type insertionMode uint
 
 const (
@@ -1479,6 +1543,7 @@ const (
 	afterFrameset
 	afterAfterBody
 	afterAfterFrameset
+	stopParser
 )
 
 type treeConstructionModeHandler func(t *Token) (bool, insertionMode, parseError)
@@ -1486,8 +1551,14 @@ type treeConstructionModeHandler func(t *Token) (bool, insertionMode, parseError
 // ConstructTree constructs the HTML tree from the tokens that are emitted from the
 // tokenizer.
 func (c *HTMLTreeConstructor) ConstructTree() {
-	c.wg.Add(1)
-	defer c.wg.Done()
+
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Printf("%s %s\n", err, de.Stack())
+		}
+		c.wg.Done()
+	}()
+
 	var (
 		token           *Token
 		nextModeHandler treeConstructionModeHandler
@@ -1495,10 +1566,14 @@ func (c *HTMLTreeConstructor) ConstructTree() {
 		parseErr        parseError
 		reprocess       bool
 	)
-	for {
-		token = <-c.tokenChannel
+	for token = range c.tokenChannel {
+		fmt.Printf("token %+v\n", token)
+		if nextMode == stopParser {
+			break
+		}
 		nextModeHandler = c.mappings[nextMode]
 		reprocess, nextMode, parseErr = nextModeHandler(token)
+		fmt.Printf("reprocess: %t, mode: %s\n", reprocess, nextMode)
 		if c.config[debug] == 0 {
 			logError(parseErr)
 		}
@@ -1510,9 +1585,11 @@ func (c *HTMLTreeConstructor) ConstructTree() {
 
 			nextModeHandler = c.mappings[nextMode]
 			reprocess, nextMode, parseErr = nextModeHandler(token)
+			fmt.Printf("reprocess: %t, mode: %s\n", reprocess, nextMode)
 			if c.config[debug] == 0 {
 				logError(parseErr)
 			}
 		}
 	}
+	fmt.Println("done")
 }

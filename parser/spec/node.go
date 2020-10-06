@@ -54,6 +54,15 @@ var ScopeMarker = &Node{
 	NodeType: ScopeMarkerNode,
 }
 
+func NewHTMLDocumentNode() *HTMLDocument {
+	return &HTMLDocument{
+		Node: &Node{
+			NodeType: DocumentNode,
+			Document: &Document{},
+		},
+	}
+}
+
 func NewTextNode(od *Node, text string) *Node {
 	return &Node{
 		NodeType:      TextNode,
@@ -168,14 +177,13 @@ func (n *Node) InsertBefore(on, child *Node) *Node                          { re
 // didn't really follow the steps here because they seem complicated :/
 // https://dom.spec.whatwg.org/#concept-node-append
 func (n *Node) AppendChild(on *Node) *Node {
-	lastChild := n.LastChild
-	if lastChild != nil {
-		on.PreviousSibling = lastChild
+	if n.LastChild != nil {
+		on.PreviousSibling = n.LastChild
+		n.LastChild.NextSibling = on
 	}
 	on.ParentNode = n
 	n.LastChild = on
-	n.ChildNodes = append(n.ChildNodes, n)
-	lastChild.NextSibling = on
+	n.ChildNodes = append(n.ChildNodes, on)
 	return on
 }
 func (n *Node) ReplaceChild(on, child *Node) *Node { return nil }
