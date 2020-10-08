@@ -15,7 +15,7 @@ type treeTest struct {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -58,7 +58,7 @@ func serializeNodeType(node *spec.Node) string {
 	switch node.NodeType {
 	case spec.ElementNode:
 		e := "<" + string(node.NodeName)
-		if len(node.Attributes.Attrs) != 0 {
+		if node.Attributes != nil && len(node.Attributes.Attrs) != 0 {
 			e += "\n"
 			keys := make([]string, 0, len(node.Attributes.Attrs))
 			for name := range node.Attributes.Attrs {

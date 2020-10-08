@@ -24,6 +24,10 @@ func Pop(h *[]*Node) {
 	*h = (*h)[:len((*h))-1]
 }
 
+func Push(h *[]*Node, n *Node) {
+	*h = append(*h, n)
+}
+
 type NodeType uint16
 
 const (

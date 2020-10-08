@@ -1,0 +1,19 @@
+#data
+<!DOCTYPE html><html><head></head><body><b>JAKE</b></body></html>
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       "JAKE"
+
+#data
+Test
+#errors
+(1,0): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "Test"
