@@ -17,3 +17,214 @@ Test
 |   <head>
 |   <body>
 |     "Test"
+
+#data
+<p>One<p>Two
+#errors
+(1,3): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "One"
+|     <p>
+|       "Two"
+
+#data
+Line1<br>Line2<br>Line3<br>Line4
+#errors
+(1,0): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "Line1"
+|     <br>
+|     "Line2"
+|     <br>
+|     "Line3"
+|     <br>
+|     "Line4"
+
+#data
+<html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<head>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<body>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head></head>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head></head><body>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head></head><body></body>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head><body></body></html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head></body></html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head><body></html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><body></html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<body></html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<head></html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+</head>
+#errors
+(1,7): expected-doctype-but-got-end-tag
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+</body>
+#errors
+(1,7): expected-doctype-but-got-end-tag element.
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+</html>
+#errors
+(1,7): expected-doctype-but-got-end-tag element.
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<b><table><td><i></table>
+#errors
+(1,3): expected-doctype-but-got-start-tag
+(1,14): unexpected-cell-in-table-body
+(1,25): unexpected-cell-end-tag
+(1,25): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       <table>
+|         <tbody>
+|           <tr>
+|             <td>
+|               <i>
+
+#data
+<b><table><td></b><i></table>X
+#errors
+(1,3): expected-doctype-but-got-start-tag
+(1,14): unexpected-cell-in-table-body
+(1,18): unexpected-end-tag
+(1,29): unexpected-cell-end-tag
+(1,30): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       <table>
+|         <tbody>
+|           <tr>
+|             <td>
+|               <i>
+|       "X"

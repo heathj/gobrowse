@@ -20,8 +20,10 @@ func Remove(i int, h *[]*Node) {
 	*h = append((*h)[:i], (*h)[i+1:]...)
 }
 
-func Pop(h *[]*Node) {
+func Pop(h *[]*Node) *Node {
+	popped := (*h)[len((*h))-1]
 	*h = (*h)[:len((*h))-1]
+	return popped
 }
 
 func Push(h *[]*Node, n *Node) {
