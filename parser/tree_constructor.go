@@ -50,7 +50,7 @@ type HTMLTreeConstructor struct {
 	fosterParenting                               bool
 	scriptingEnabled                              bool
 	originalInsertionMode                         insertionMode
-	stackOfOpenElements, activeFormattingElements []*spec.Node
+	stackOfOpenElements, activeFormattingElements spec.NodeList
 	stackOfInsertionModes                         []insertionMode
 	headElementPointer                            *spec.Node
 	formElementPointer                            *spec.Node
@@ -121,6 +121,9 @@ func (c *HTMLTreeConstructor) createMappings() {
 }
 
 func (c *HTMLTreeConstructor) getCurrentNode() *spec.Node {
+	if len(c.stackOfOpenElements) == 0 {
+		return nil
+	}
 	return c.stackOfOpenElements[len(c.stackOfOpenElements)-1]
 }
 
@@ -407,7 +410,7 @@ func (c *HTMLTreeConstructor) pushActiveFormattingElements(elem *spec.Node) {
 
 	// find the last marker
 	last := len(c.activeFormattingElements) - 1
-	for i := last; i >= 0 || elems < 3; i-- {
+	for i := last; i >= 0 && elems < 3; i-- {
 		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode {
 			break
 		}
@@ -425,7 +428,15 @@ func (c *HTMLTreeConstructor) pushActiveFormattingElements(elem *spec.Node) {
 
 func isSpecial(n *spec.Node) bool {
 	switch n.NodeName {
-	case "address", "applet", "area", "article", "aside", "base", "basefont", "bgsound", "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "dd", "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "iframe", "img", "input", "keygen", "li", "link", "listing", "main", "marquee", "menu", "meta", "nav", "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script", "section", "select", "source", "style", "summary", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "tr", "track", "ul", "wbr", "mi", "mo", "mn", "ms", "mtext", "annotation-xml", "foreignObject", "desc", "title":
+	case "address", "applet", "area", "article", "aside", "base", "basefont", "bgsound", "blockquote",
+		"body", "br", "button", "caption", "center", "col", "colgroup", "dd", "details", "dir", "div",
+		"dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form", "frame", "frameset",
+		"h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "iframe", "img",
+		"input", "keygen", "li", "link", "listing", "main", "marquee", "menu", "meta", "nav", "noembed",
+		"noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script", "section",
+		"select", "source", "style", "summary", "table", "tbody", "td", "template", "textarea", "tfoot",
+		"th", "thead", "tr", "track", "ul", "wbr", "mi", "mo", "mn", "ms", "mtext", "annotation-xml",
+		"foreignObject", "desc", "title":
 		return true
 	}
 	return false
@@ -472,9 +483,9 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 
 	// outer loop
 	var y, z, si, nif, nis int
-	var formattingElement, furthestBlock *spec.Node
-	for x := 0; x < 8; x++ {
+	for x := 1; x < 8; x++ {
 		// 6
+		var formattingElement *spec.Node
 		for y = len(c.activeFormattingElements) - 1; y >= 0; y-- {
 			if c.activeFormattingElements[y].NodeType == spec.ScopeMarkerNode {
 				break
@@ -482,6 +493,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 
 			if c.activeFormattingElements[y].NodeName == webidl.DOMString(t.TagName) {
 				formattingElement = c.activeFormattingElements[y]
+				break
 			}
 		}
 
@@ -509,9 +521,10 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		}
 
 		// 10
-		for z = y + 1; z < len(c.activeFormattingElements); z++ {
-			if isSpecial(c.activeFormattingElements[z]) {
-				furthestBlock = c.activeFormattingElements[z]
+		var furthestBlock *spec.Node
+		for z = si + 1; z < len(c.stackOfOpenElements); z++ {
+			if isSpecial(c.stackOfOpenElements[z]) {
+				furthestBlock = c.stackOfOpenElements[z]
 				break
 			}
 		}
@@ -536,7 +549,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		//14 inner loop
 		node := furthestBlock
 		lastNode := furthestBlock
-		for a := 1; ; a++ {
+		for a := 1; z >= 0; a++ {
 			z--
 			// 14.3
 			node = c.stackOfOpenElements[z]
@@ -580,13 +593,22 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		}
 
 		// 15
+		// this step is NOT explicitly stated but I think it is implied otherwise, this algorithm
+		// doesn't really do anything.
+		if lastNode.ParentNode != nil {
+			lastNode.ParentNode.RemoveChild(lastNode)
+		}
 		ca.AppendChild(lastNode)
 
 		// 16
 		clone := formattingElement.CloneNode(true)
 		clone.ParentNode = furthestBlock
 		// 17
-		for _, child := range furthestBlock.ChildNodes {
+		for i, child := range furthestBlock.ChildNodes {
+
+			// same as above, here. This step does NOT explicitly say to remove the children elements
+			// and move them, but the algorithm wouldn't really work otherwise.
+			spec.Remove(i, &furthestBlock.ChildNodes)
 			clone.AppendChild(child)
 		}
 		// 18
@@ -596,7 +618,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		if f != -1 {
 			spec.Remove(f, &c.activeFormattingElements)
 			b := spec.Contains(bm, &c.activeFormattingElements)
-			if b != 1 {
+			if b != -1 {
 				c.activeFormattingElements[b] = clone
 			}
 		}
@@ -646,7 +668,7 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	for ; i >= 0; i-- {
 		// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
 		// go to the step labeled rewind.
-		doesContain := spec.Contains(c.activeFormattingElements[i], &c.stackOfOpenElements)
+		doesContain = spec.Contains(c.activeFormattingElements[i], &c.stackOfOpenElements)
 		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
 			break
 		}
@@ -654,12 +676,15 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 
 	// 7. Advance: Let entry be the element one later than entry in the list of active formatting
 	// elements.
+	if i == -1 {
+		i = 0
+	}
 	for ; i < len(c.activeFormattingElements)-1; i++ {
 		// 8. Create: Insert an HTML element for the token for which the element entry was created,
 		// to obtain new element.
 		loc := c.getAppropriatePlaceForInsertionDefault()
 		elem := c.activeFormattingElements[i+1].CloneNode(true)
-		loc.ParentNode.AppendChild(elem)
+		loc.AppendChild(elem)
 		spec.Push(&c.stackOfOpenElements, elem)
 
 		// 9. Replace the entry for entry in the list with an entry for new element.
@@ -1160,8 +1185,29 @@ func (c *HTMLTreeConstructor) afterHeadModeHandler(t *Token) (bool, insertionMod
 	return c.defaultAfterHeadModeHandler(t)
 }
 
-func (c *HTMLTreeConstructor) defaultInBodyModeHandler(t *Token) (bool, insertionMode, parseError) {
-	return false, inBody, noError
+func (c *HTMLTreeConstructor) defaultInBodyModeHandler(t *Token) parseError {
+	err := noError
+	for i := len(c.stackOfOpenElements) - 1; i >= 0; i-- {
+		node := c.stackOfOpenElements[i]
+		if node.NodeName == webidl.DOMString(t.TagName) {
+			c.generateImpliedEndTags([]webidl.DOMString{node.NodeName})
+			if node != c.getCurrentNode() {
+				err = generalParseError
+			}
+
+			for {
+				popped := spec.Pop(&c.stackOfOpenElements)
+				if popped == nil || popped == node {
+					return err
+				}
+			}
+		} else {
+			if isSpecial(node) {
+				return generalParseError
+			}
+		}
+	}
+	return err
 }
 
 func containedIn(s webidl.DOMString, h []webidl.DOMString) bool {
@@ -1225,12 +1271,10 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "\u0009", "\u000A", "\u000C", "\u000D", "\u0020":
 			c.reconstructActiveFormattingElements()
 			c.insertCharacter(t)
-			return false, inBody, noError
 		default:
 			c.reconstructActiveFormattingElements()
 			c.insertCharacter(t)
 			c.frameset = framesetNotOK
-			return false, inBody, noError
 		}
 	case commentToken:
 		c.insertComment(t)
@@ -1259,6 +1303,25 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 
 			c.insertHTMLElementForToken(t)
 		case "h1", "h2", "h3", "h4", "h5", "h6":
+			err = noError
+			nodes := c.containedInStackOpenElements("p")
+			if len(nodes) != 0 {
+				for _, n := range nodes {
+					if c.elementInButtonScope(n) {
+						c.closePElement()
+						break
+					}
+				}
+			}
+
+			switch c.getCurrentNode().NodeName {
+			case "h1", "h2", "h3", "h4", "h5", "h6":
+				err = generalParseError
+				spec.Pop(&c.stackOfOpenElements)
+			}
+
+			c.insertHTMLElementForToken(t)
+			return false, inBody, err
 		case "pre", "listing":
 		case "form":
 		case "li":
@@ -1266,6 +1329,28 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "plaintext":
 		case "button":
 		case "a":
+			var node *spec.Node
+			for i := len(c.activeFormattingElements) - 1; i >= 0; i++ {
+				node = c.activeFormattingElements[i]
+				if node.NodeType == spec.ScopeMarkerNode {
+					break
+				}
+
+				if node.NodeName == "a" {
+					var shouldDefault bool
+					shouldDefault, err = c.adoptionAgencyAlgorithm(t)
+					if shouldDefault {
+						err = c.defaultInBodyModeHandler(t)
+					}
+					spec.Remove(spec.Contains(node, &c.activeFormattingElements), &c.activeFormattingElements)
+					spec.Remove(spec.Contains(node, &c.stackOfOpenElements), &c.stackOfOpenElements)
+					break
+				}
+			}
+
+			c.reconstructActiveFormattingElements()
+			elem := c.insertHTMLElementForToken(t)
+			c.pushActiveFormattingElements(elem)
 		case "b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u":
 			c.reconstructActiveFormattingElements()
 			elem := c.insertHTMLElementForToken(t)
@@ -1342,14 +1427,13 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			var shouldDefault bool
 			shouldDefault, err = c.adoptionAgencyAlgorithm(t)
 			if shouldDefault {
-				a, b, _ := c.defaultInBodyModeHandler(t)
-				return a, b, err
+				err = c.defaultInBodyModeHandler(t)
 			}
 			return false, inBody, err
 		case "applet", "marquee", "object":
 		case "br":
 		default:
-			return c.defaultInBodyModeHandler(t)
+			err = c.defaultInBodyModeHandler(t)
 		}
 
 		return false, inBody, err
@@ -1361,7 +1445,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		err := c.stackOfOpenElementsParseErrorCheck()
 		return c.stopParsing(err)
 	}
-	return false, initial, noError
+	return false, inBody, noError
 }
 func (c *HTMLTreeConstructor) textModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {

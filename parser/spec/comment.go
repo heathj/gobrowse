@@ -12,7 +12,7 @@ func NewComment(data webidl.DOMString) *Comment {
 	return &Comment{
 		CharacterData: &CharacterData{
 			Data:   data,
-			Length: uint(len(data)),
+			Length: len(data),
 		},
 	}
 }

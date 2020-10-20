@@ -15,7 +15,7 @@ type treeTest struct {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -122,6 +122,7 @@ func TestTreeConstructor(t *testing.T) {
 	for _, test := range tests {
 		runTreeConstructorTest(test, t)
 	}
+
 }
 
 func runTreeConstructorTest(test treeTest, t *testing.T) {

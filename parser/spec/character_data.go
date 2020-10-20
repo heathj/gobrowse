@@ -5,7 +5,7 @@ import "browser/parser/webidl"
 // CharacterData is https:domspec.whatwg.org/#characterdata
 type CharacterData struct {
 	Data   webidl.DOMString
-	Length uint
+	Length int
 }
 
 func (c *CharacterData) substringData(offset, count uint) webidl.DOMString     { return "" }

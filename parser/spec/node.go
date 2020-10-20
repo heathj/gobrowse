@@ -4,7 +4,7 @@ import (
 	"browser/parser/webidl"
 )
 
-func Contains(n *Node, h *[]*Node) int {
+func Contains(n *Node, h *NodeList) int {
 	for i := range *h {
 		if n == (*h)[i] {
 			return i
@@ -13,20 +13,25 @@ func Contains(n *Node, h *[]*Node) int {
 	return -1
 }
 
-func Remove(i int, h *[]*Node) {
+func Remove(i int, h *NodeList) *Node {
 	if i == -1 {
-		return
+		return nil
 	}
+	node := (*h)[i]
 	*h = append((*h)[:i], (*h)[i+1:]...)
+	return node
 }
 
-func Pop(h *[]*Node) *Node {
+func Pop(h *NodeList) *Node {
+	if len(*h) == 0 {
+		return nil
+	}
 	popped := (*h)[len((*h))-1]
 	*h = (*h)[:len((*h))-1]
 	return popped
 }
 
-func Push(h *[]*Node, n *Node) {
+func Push(h *NodeList, n *Node) {
 	*h = append(*h, n)
 }
 
@@ -109,6 +114,7 @@ func NewDOMElement(od *Node, name, namespace webidl.DOMString, optionals ...webi
 			NamespaceURI: namespace,
 			Prefix:       prefix,
 			LocalName:    name,
+			Attributes:   NewNamedNodeMap(map[string]string{}),
 		},
 	}
 }
@@ -148,7 +154,61 @@ func (n *Node) CloneNodeDef() *Node {
 	return n.CloneNode(false)
 }
 func (n *Node) CloneNode(deep bool) *Node {
-	return nil
+	copy := &Node{}
+	if n.NodeType == ElementNode {
+		copy = NewDOMElement(n, n.NodeName, n.Element.NamespaceURI, n.Element.Prefix)
+		attrs := make(map[string]string)
+		for k, v := range n.Attributes.Attrs {
+			attrs[k] = v
+		}
+		copy.Attributes = NewNamedNodeMap(attrs)
+	} else {
+		copy.NodeType = n.NodeType
+		switch n.NodeType {
+		case DocumentNode:
+			copy.Document = &Document{}
+			copy.InputEncoding = n.InputEncoding
+			copy.ContentType = n.ContentType
+			copy.URL = n.URL
+			// origin
+			// type
+			copy.CompatMode = n.CompatMode
+		case DocumentTypeNode:
+			copy.DocumentType = &DocumentType{}
+			copy.DocumentType.Name = n.DocumentType.Name
+			copy.PublicID = n.PublicID
+			copy.SystemID = n.SystemID
+		case AttrNode:
+			copy.Attr = &Attr{}
+			copy.Attr.NamespaceURI = n.Attr.NamespaceURI
+			copy.Attr.Prefix = n.Attr.Prefix
+			copy.Attr.LocalName = n.Attr.LocalName
+			copy.Attr.Value = n.Attr.Value
+		case TextNode:
+			copy.Text = NewText(n.Text.Data)
+		case CommentNode:
+			copy.Comment = NewComment(n.Comment.Data)
+		case ProcessingInstructionNode:
+			copy.ProcessingInstruction = &ProcessingInstruction{}
+			copy.ProcessingInstruction.Target = n.ProcessingInstruction.Target
+			copy.ProcessingInstruction.Data = n.ProcessingInstruction.Data
+		}
+	}
+
+	if copy.NodeType == DocumentNode {
+		copy.OwnerDocument = copy
+		n.OwnerDocument = copy //? I don't think this is right
+	} else {
+		copy.OwnerDocument = n.OwnerDocument
+	}
+
+	if deep {
+		for _, child := range n.ChildNodes {
+			copy.AppendChild(child.CloneNode(true))
+		}
+	}
+
+	return copy
 }
 
 // https://dom.spec.whatwg.org/#concept-node-equals
@@ -193,4 +253,18 @@ func (n *Node) AppendChild(on *Node) *Node {
 	return on
 }
 func (n *Node) ReplaceChild(on, child *Node) *Node { return nil }
-func (n *Node) RemoveChild(child *Node) *Node      { return nil }
+
+// TODO: not to spec yet, for some reason remove is like 50 steps. I'll come back to it
+func (n *Node) RemoveChild(child *Node) *Node {
+	node := Remove(Contains(child, &n.ChildNodes), &n.ChildNodes)
+	if n.LastChild != nil {
+		if len(n.ChildNodes) >= 1 {
+			n.LastChild = n.LastChild.PreviousSibling
+			n.LastChild.NextSibling = nil
+		} else if len(n.ChildNodes) == 0 {
+			n.LastChild = nil
+		}
+	}
+
+	return node
+}
