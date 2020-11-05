@@ -1,5 +1,4 @@
 package spec
 
-type HTMLTableElement struct {
-	*HTMLElement
+type HTMLTable struct {
 }

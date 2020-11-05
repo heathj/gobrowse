@@ -1,8 +1,6 @@
 {"tests": [
-{"description": "Windows-1252 EURO SIGN numeric entity.",
-"input":"&#0128;",
-"output": [["Character", "\u20AC"]],
-"errors":[
-    { "code": "control-character-reference", "line": 1, "col": 8 }
+{"description":"plaintext element",
+ "input":"<plaintext>foobar",
+ "output":[["StartTag","plaintext",{}], ["Character","foobar"]]}
 ]}
-]}
+

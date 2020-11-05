@@ -1,5 +1,4 @@
 package spec
 
-type HTMLTHeadElement struct {
-	*HTMLElement
+type HTMLTHead struct {
 }

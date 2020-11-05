@@ -1,5 +1,5 @@
 package spec
 
-type Window struct {
+type HTMLWindow struct {
 	*EventTarget
 }

@@ -44,6 +44,8 @@ const (
 // HTMLTreeConstructor holds the state for various state of the tree construction phase.
 type HTMLTreeConstructor struct {
 	tokenChannel                                  chan *Token
+	stateChannel                                  chan tokenizerState
+	curInsertionMode                              insertionMode
 	config                                        htmlParserConfig
 	HTMLDocument                                  *spec.HTMLDocument
 	quirksMode                                    quirksMode
@@ -54,6 +56,7 @@ type HTMLTreeConstructor struct {
 	stackOfInsertionModes                         []insertionMode
 	headElementPointer                            *spec.Node
 	formElementPointer                            *spec.Node
+	pendingTableCharacterTokens                   []*Token
 	createdBy                                     createdByOrigin
 	wg                                            *sync.WaitGroup
 	frameset                                      frameset
@@ -81,9 +84,10 @@ const (
 )
 
 // NewHTMLTreeConstructor creates an HTMLTreeConstructor.
-func NewHTMLTreeConstructor(c chan *Token, wg *sync.WaitGroup) *HTMLTreeConstructor {
+func NewHTMLTreeConstructor(c chan *Token, s chan tokenizerState, wg *sync.WaitGroup) *HTMLTreeConstructor {
 	tr := HTMLTreeConstructor{
 		tokenChannel: c,
+		stateChannel: s,
 		HTMLDocument: spec.NewHTMLDocumentNode(),
 		wg:           wg,
 	}
@@ -129,24 +133,86 @@ func (c *HTMLTreeConstructor) getCurrentNode() *spec.Node {
 
 // Inserts a comment at a specific location.
 // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
-func (c *HTMLTreeConstructor) insertCommentAt(t *Token) {
-	//commentNode := spec\.NewComment(webidl.DOMString(t.Data))
-	// I think if the window has multiple documents such as a webpage with an iframe
-	// we will have to specific the document this comment needs to belong to.
-	//commentNode.OwnerDocument = c.HTMLDocument.Document
-	//handler(*commentNode.Node)
-
+func (c *HTMLTreeConstructor) insertCommentAt(t *Token, il *insertionLocation) {
+	commentNode := spec.NewComment(webidl.DOMString(t.Data), il.node.OwnerDocument)
+	il.insert(commentNode)
 }
 
 // Inserts a comment at the adjusted insertion location.
 // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
 func (c *HTMLTreeConstructor) insertComment(t *Token) {
-	//c.insertCommentAt(t, c.getAppropriatePlaceForInsertionDefault())
+	c.insertCommentAt(t, c.getAppropriatePlaceForInsertion(nil))
+}
+
+func (c *HTMLTreeConstructor) getLastElemInStackOfOpenElements(elem webidl.DOMString) int {
+	if len(c.stackOfOpenElements) == 0 {
+		return -1
+	}
+	for i := len(c.stackOfOpenElements) - 1; i >= 0; i-- {
+		if c.stackOfOpenElements[i].NodeName == elem {
+			return i
+		}
+	}
+	return -1
+}
+
+type insertionLocation struct {
+	node   *spec.Node
+	insert func(*spec.Node)
 }
 
 // https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node
-func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertionDefault() *spec.Node {
-	return c.getCurrentNode()
+func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertion(target *spec.Node) *insertionLocation {
+	if target == nil {
+		target = c.getCurrentNode()
+		if target == nil {
+			target = c.HTMLDocument.Node
+		}
+	}
+	ail := &insertionLocation{}
+	if c.fosterParenting {
+		switch target.NodeName {
+		case "table", "tbody", "tfoot", "thead", "tr":
+			lastTemplate := c.getLastElemInStackOfOpenElements("template")
+			lastTable := c.getLastElemInStackOfOpenElements("table")
+
+			if lastTemplate != -1 {
+				if lastTable == -1 || lastTemplate > lastTable {
+					ail.node = c.stackOfOpenElements[lastTemplate]
+					ail.insert = func(n *spec.Node) {
+						c.stackOfOpenElements[lastTemplate].AppendChild(n)
+					}
+					return ail
+				}
+			}
+
+			if lastTable == -1 {
+				ail.node = c.stackOfOpenElements[0]
+				ail.insert = func(n *spec.Node) {
+					c.stackOfOpenElements[0].AppendChild(n)
+				}
+				return ail
+			}
+
+			if c.stackOfOpenElements[lastTable].ParentNode != nil {
+				ail.node = c.stackOfOpenElements[lastTable].ParentNode
+				ail.insert = func(n *spec.Node) {
+					c.stackOfOpenElements[lastTable].ParentNode.InsertBefore(n, c.stackOfOpenElements[lastTable])
+				}
+				return ail
+			}
+
+			ail.insert = func(n *spec.Node) {
+				c.stackOfOpenElements[lastTable-1].AppendChild(n)
+			}
+			return ail
+		}
+	} else {
+		ail.node = target
+		ail.insert = func(n *spec.Node) { target.AppendChild(n) }
+	}
+
+	return ail
 }
 
 func (c *HTMLTreeConstructor) elementInSpecificScope(target *spec.Node, list []webidl.DOMString) bool {
@@ -189,6 +255,13 @@ func (c *HTMLTreeConstructor) elementInScope(target *spec.Node) bool {
 	}
 
 	return c.elementInSpecificScope(target, list)
+}
+
+func (c *HTMLTreeConstructor) elementInSelectScope(target *spec.Node) bool {
+	list := []webidl.DOMString{
+		"select",
+	}
+	return c.elementInScope(target) && c.elementInSpecificScope(target, list)
 }
 
 func (c *HTMLTreeConstructor) elementInButtonScope(target *spec.Node) bool {
@@ -334,16 +407,16 @@ func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns webidl.DOMStrin
 }
 
 func (c *HTMLTreeConstructor) insertCharacter(t *Token) {
-	loc := c.getAppropriatePlaceForInsertionDefault()
-	if loc != nil && loc.NodeType == spec.DocumentNode {
+	il := c.getAppropriatePlaceForInsertion(nil)
+	if il.node != nil && il.node.NodeType == spec.DocumentNode {
 		return
 	}
 
-	if loc.LastChild != nil && loc.LastChild.NodeType == spec.TextNode {
-		loc.LastChild.Text.CharacterData.Data += webidl.DOMString(t.Data)
+	if il.node.LastChild != nil && il.node.LastChild.NodeType == spec.TextNode {
+		il.node.LastChild.Text.CharacterData.Data += webidl.DOMString(t.Data)
 	} else {
-		tn := spec.NewTextNode(loc.OwnerDocument, t.Data)
-		loc.AppendChild(tn)
+		tn := spec.NewTextNode(il.node.OwnerDocument, t.Data)
+		il.insert(tn)
 	}
 
 }
@@ -353,9 +426,9 @@ func (c *HTMLTreeConstructor) insertHTMLElementForToken(t *Token) *spec.Node {
 }
 
 func (c *HTMLTreeConstructor) insertForeignElementForToken(t *Token, namespace webidl.DOMString) *spec.Node {
-	loc := c.getAppropriatePlaceForInsertionDefault()
-	elem := c.createElementForToken(t, namespace, loc)
-	loc.AppendChild(elem)
+	il := c.getAppropriatePlaceForInsertion(nil)
+	elem := c.createElementForToken(t, namespace, il.node)
+	il.insert(elem)
 	spec.Push(&c.stackOfOpenElements, elem)
 	return elem
 }
@@ -641,6 +714,21 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 	return false, err
 }
 
+func (c *HTMLTreeConstructor) racfeCreateStep(i int) {
+	// 8. Create: Insert an HTML element for the token for which the element entry was created,
+	// to obtain new element.
+	il := c.getAppropriatePlaceForInsertion(nil)
+	elem := c.activeFormattingElements[i].CloneNode(true)
+	il.insert(elem)
+	spec.Push(&c.stackOfOpenElements, elem)
+
+	// 9. Replace the entry for entry in the list with an entry for new element.
+	c.activeFormattingElements[i] = elem
+
+	// 10. If the entry for new element in the list of active formatting elements is not the last
+	// entry in the list, return to the step labeled advance.
+}
+
 func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	// 1. If there are no entries in the list of active formatting elements, then there is nothing
 	// to reconstruct; stop this algorithm.
@@ -664,34 +752,24 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 
 	// 4. Rewind: If there are no entries before entry in the list of active formatting elements,
 	// then jump to the step labeled create.
-	// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
-	for ; i >= 0; i-- {
-		// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
-		// go to the step labeled rewind.
-		doesContain = spec.Contains(c.activeFormattingElements[i], &c.stackOfOpenElements)
-		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
-			break
+	if i == 0 {
+		c.racfeCreateStep(i)
+	} else {
+		// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
+		for ; i > 0; i-- {
+			// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
+			// go to the step labeled rewind.
+			doesContain = spec.Contains(c.activeFormattingElements[i], &c.stackOfOpenElements)
+			if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
+				break
+			}
 		}
 	}
 
 	// 7. Advance: Let entry be the element one later than entry in the list of active formatting
 	// elements.
-	if i == -1 {
-		i = 0
-	}
-	for ; i < len(c.activeFormattingElements)-1; i++ {
-		// 8. Create: Insert an HTML element for the token for which the element entry was created,
-		// to obtain new element.
-		loc := c.getAppropriatePlaceForInsertionDefault()
-		elem := c.activeFormattingElements[i+1].CloneNode(true)
-		loc.AppendChild(elem)
-		spec.Push(&c.stackOfOpenElements, elem)
-
-		// 9. Replace the entry for entry in the list with an entry for new element.
-		c.activeFormattingElements[i+1] = elem
-
-		// 10. If the entry for new element in the list of active formatting elements is not the last
-		// entry in the list, return to the step labeled advance.
+	for j := i + 1; j < len(c.activeFormattingElements); j++ {
+		c.racfeCreateStep(j)
 	}
 
 }
@@ -1034,6 +1112,20 @@ func (c *HTMLTreeConstructor) beforeHeadModeHandler(t *Token) (bool, insertionMo
 
 }
 
+func (c *HTMLTreeConstructor) genericRCDATAElementParsingAlgorithm(t *Token, ogi insertionMode) (bool, insertionMode, parseError) {
+	c.insertHTMLElementForToken(t)
+	c.originalInsertionMode = ogi
+	c.stateChannel <- rcDataState
+	return false, text, noError
+}
+
+func (c *HTMLTreeConstructor) genericRawTextElementParsingAlgorithm(t *Token, ogi insertionMode) (bool, insertionMode, parseError) {
+	c.insertHTMLElementForToken(t)
+	c.originalInsertionMode = ogi
+	c.stateChannel <- rawTextState
+	return false, text, noError
+}
+
 func (c *HTMLTreeConstructor) defaultInHeadModeHandler(t *Token) (bool, insertionMode, parseError) {
 	spec.Pop(&c.stackOfOpenElements)
 	return true, afterHead, noError
@@ -1063,6 +1155,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			c.PopOpenElements()*/
 			//TODO: acknowledge the self closing flag?
 		case "title":
+			return c.genericRCDATAElementParsingAlgorithm(t, inHead)
 		case "noscript":
 			if c.scriptingEnabled {
 
@@ -1072,6 +1165,15 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			}
 		case "noframes", "style":
 		case "script":
+			il := c.getAppropriatePlaceForInsertion(nil)
+			elem := c.createElementForToken(t, "html", il.node)
+			elem.ParserDocument = c.HTMLDocument
+			elem.NonBlocking = false
+			il.insert(elem)
+			spec.Push(&c.stackOfOpenElements, elem)
+			c.stateChannel <- scriptDataState
+			c.originalInsertionMode = inHead
+			return false, text, noError
 		case "template":
 		case "head":
 			return false, inHead, generalParseError
@@ -1261,6 +1363,24 @@ func (c *HTMLTreeConstructor) containedInStackOpenElements(s string) []*spec.Nod
 	return nodes
 }
 
+func (c *HTMLTreeConstructor) stackContainsInScope(s string, scopeFunc func(*spec.Node) bool, handlerFunc func(), trueOrFalseFunc bool) {
+	nodes := c.containedInStackOpenElements(s)
+	if len(nodes) != 0 {
+		for _, n := range nodes {
+			if scopeFunc(n) {
+				if trueOrFalseFunc {
+					handlerFunc()
+				}
+				return
+			}
+		}
+	}
+
+	if !trueOrFalseFunc {
+		handlerFunc()
+	}
+}
+
 func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, parseError) {
 	err := noError
 	switch t.TokenType {
@@ -1291,29 +1411,11 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "address", "article", "aside", "blockquote", "center", "details", "dialog", "dir",
 			"div", "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "main",
 			"menu", "nav", "ol", "p", "section", "summary", "ul":
-			nodes := c.containedInStackOpenElements("p")
-			if len(nodes) != 0 {
-				for _, n := range nodes {
-					if c.elementInButtonScope(n) {
-						c.closePElement()
-						break
-					}
-				}
-			}
-
+			c.stackContainsInScope("p", c.elementInButtonScope, c.closePElement, true)
 			c.insertHTMLElementForToken(t)
 		case "h1", "h2", "h3", "h4", "h5", "h6":
 			err = noError
-			nodes := c.containedInStackOpenElements("p")
-			if len(nodes) != 0 {
-				for _, n := range nodes {
-					if c.elementInButtonScope(n) {
-						c.closePElement()
-						break
-					}
-				}
-			}
-
+			c.stackContainsInScope("p", c.elementInButtonScope, c.closePElement, true)
 			switch c.getCurrentNode().NodeName {
 			case "h1", "h2", "h3", "h4", "h5", "h6":
 				err = generalParseError
@@ -1327,7 +1429,22 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "li":
 		case "dd", "dt":
 		case "plaintext":
+			c.stackContainsInScope("button", c.elementInButtonScope, c.closePElement, true)
+			c.insertHTMLElementForToken(t)
+			c.stateChannel <- plaintextState
 		case "button":
+			c.stackContainsInScope("button", c.elementInScope, func() {
+				c.generateImpliedEndTags([]webidl.DOMString{})
+				for {
+					popped := spec.Pop(&c.stackOfOpenElements)
+					if popped == nil || popped.NodeName == "button" {
+						break
+					}
+				}
+			}, true)
+			c.reconstructActiveFormattingElements()
+			c.insertHTMLElementForToken(t)
+			c.frameset = framesetNotOK
 		case "a":
 			var node *spec.Node
 			for i := len(c.activeFormattingElements) - 1; i >= 0; i++ {
@@ -1357,17 +1474,13 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			spec.Push(&c.activeFormattingElements, elem)
 		case "nobr":
 		case "applet", "marquee", "object":
+			c.reconstructActiveFormattingElements()
+			c.insertHTMLElementForToken(t)
+			spec.Push(&c.activeFormattingElements, spec.ScopeMarker)
+			c.frameset = framesetNotOK
 		case "table":
 			if c.quirksMode != quirks {
-				nodes := c.containedInStackOpenElements("p")
-				if len(nodes) != 0 {
-					for _, n := range nodes {
-						if c.elementInButtonScope(n) {
-							c.closePElement()
-							break
-						}
-					}
-				}
+				c.stackContainsInScope("p", c.elementInButtonScope, c.closePElement, true)
 			}
 			c.insertHTMLElementForToken(t)
 			c.frameset = framesetNotOK
@@ -1381,6 +1494,11 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "input":
 		case "param", "source", "track":
 		case "hr":
+			c.stackContainsInScope("p", c.elementInButtonScope, c.closePElement, true)
+			c.insertHTMLElementForToken(t)
+			spec.Pop(&c.stackOfOpenElements)
+			// ack self closing flag
+			c.frameset = framesetNotOK
 		case "image":
 		case "textarea":
 		case "xmp":
@@ -1388,13 +1506,28 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "noembed":
 		case "noscript":
 		case "select":
+			c.reconstructActiveFormattingElements()
+			c.insertHTMLElementForToken(t)
+			c.frameset = framesetNotOK
+			switch c.curInsertionMode {
+			case inTable, inCaption, inTableBody, inRow, inCell:
+				return false, inSelectInTable, noError
+			}
+			return false, inSelect, noError
 		case "optgroup", "option":
+			if c.getCurrentNode().NodeName == "option" {
+				spec.Pop(&c.stackOfOpenElements)
+			}
+			c.reconstructActiveFormattingElements()
+			c.insertHTMLElementForToken(t)
 		case "rb", "rtc":
 		case "rp", "rt":
 		case "math":
 		case "svg":
 		case "caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr":
 		default:
+			c.reconstructActiveFormattingElements()
+			c.insertHTMLElementForToken(t)
 		}
 		return false, inBody, err
 	case endTagToken:
@@ -1416,8 +1549,43 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "address", "article", "aside", "blockquote", "button", "center", "details", "dialog",
 			"dir", "div", "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup",
 			"listing", "main", "menu", "nav", "ol", "pre", "section", "summary", "ul":
+
+			tagInScope := false
+			c.stackContainsInScope(t.TagName, c.elementInScope, func() {
+				tagInScope = true
+			}, true)
+
+			if !tagInScope {
+				return false, inBody, generalParseError
+			}
+
+			c.generateImpliedEndTags([]webidl.DOMString{})
+			if c.getCurrentNode().NodeName != webidl.DOMString(t.TagName) {
+				err = generalParseError
+			}
+			var popped *spec.Node
+			for {
+				popped = spec.Pop(&c.stackOfOpenElements)
+				if popped == nil || popped.NodeName == webidl.DOMString(t.TagName) {
+					break
+				}
+			}
 		case "form":
 		case "p":
+			tagInScope := false
+			c.stackContainsInScope("p", c.elementInButtonScope, func() {
+				tagInScope = true
+			}, true)
+
+			if !tagInScope {
+				err = generalParseError
+				tok := &Token{
+					TagName:   "p",
+					TokenType: startTagToken,
+				}
+				c.insertHTMLElementForToken(tok)
+			}
+			c.closePElement()
 		case "li":
 		case "dd", "dt":
 		case "h1", "h2", "h3", "h4", "h5", "h6":
@@ -1429,7 +1597,6 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			if shouldDefault {
 				err = c.defaultInBodyModeHandler(t)
 			}
-			return false, inBody, err
 		case "applet", "marquee", "object":
 		case "br":
 		default:
@@ -1450,16 +1617,22 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 func (c *HTMLTreeConstructor) textModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case characterToken:
-		//c.WriteCharacter(t)
+		c.insertCharacter(t)
 		return false, text, noError
 	case endOfFileToken:
+		node := c.getCurrentNode()
+		if node.NodeName == "script" {
+			node.AlreadyStated = true
+		}
+		spec.Pop(&c.stackOfOpenElements)
 		return true, c.originalInsertionMode, generalParseError
 	case endTagToken:
 		switch t.TagName {
 		case "script":
+			spec.Pop(&c.stackOfOpenElements)
 			return false, c.originalInsertionMode, noError
 		default:
-			//c.PopOpenElements()
+			spec.Pop(&c.stackOfOpenElements)
 			return false, c.originalInsertionMode, noError
 		}
 	}
@@ -1467,16 +1640,20 @@ func (c *HTMLTreeConstructor) textModeHandler(t *Token) (bool, insertionMode, pa
 }
 
 func (c *HTMLTreeConstructor) defaultInTableModeHandler(t *Token) (bool, insertionMode, parseError) {
-	return false, inTable, noError
+	c.fosterParenting = true
+	repro, nextState, _ := c.useRulesFor(t, inTable, inBody)
+	c.fosterParenting = false
+	return repro, nextState, generalParseError
 }
 func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case characterToken:
-		/*switch c.CurrentNode().elemType {
-		case tableElement, tbodyElement, tfootElement, theadElement, trElement:
-			c.originalInsertionMode = inTable
+		switch c.getCurrentNode().NodeName {
+		case "table", "tbody", "tfoot", "thead", "tr":
+			c.pendingTableCharacterTokens = []*Token{}
+			c.originalInsertionMode = c.curInsertionMode
 			return true, inTableText, noError
-		}*/
+		}
 	case commentToken:
 		c.insertComment(t)
 	case docTypeToken:
@@ -1485,19 +1662,19 @@ func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode,
 		switch t.TagName {
 		case "caption":
 			c.clearStackBackToTable()
-			/*c.WriteMarker()
-			c.WriteHTMLElement(t)*/
-			return false, inColumnGroup, noError
+			spec.Push(&c.activeFormattingElements, spec.ScopeMarker)
+			c.insertHTMLElementForToken(t)
+			return false, inCaption, noError
 		case "colgroup":
 			c.clearStackBackToTable()
-			//c.WriteHTMLElement(t)
+			c.insertHTMLElementForToken(t)
 			return false, inColumnGroup, noError
 		case "col":
 			c.clearStackBackToTable()
-			/*c.WriteHTMLElement(Token{
+			c.insertHTMLElementForToken(&Token{
 				TagName:   "colgroup",
 				TokenType: startTagToken,
-			})*/
+			})
 			return true, inColumnGroup, noError
 		case "tbody", "tfoot", "thead":
 			c.clearStackBackToTable()
@@ -1512,15 +1689,14 @@ func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode,
 			c.insertHTMLElementForToken(tbody)
 			return true, inTableBody, noError
 		case "table":
-			/*if c.openElementsInTableScope(tableElement) {
-				return false, inTable, noError
-			}*/
-
-			c.clearStackBackToTable()
-			/*c.PopOpenElements()
-			nextMode := c.resetInsertionMode()*/
-			nextMode := beforeHTML
-			return true, nextMode, noError
+			repro := false
+			mode := inTable
+			c.stackContainsInScope("table", c.elementInTableScope, func() {
+				spec.PopUntil(&c.stackOfOpenElements, "table")
+				mode = c.resetInsertionMode()
+				repro = true
+			}, true)
+			return repro, mode, noError
 		case "style", "script", "template":
 			return c.useRulesFor(t, inTable, inHead)
 		case "input":
@@ -1534,52 +1710,65 @@ func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode,
 				return c.defaultInTableModeHandler(t)
 			}
 
-			/*c.WriteHTMLElement(t)
-			c.PopOpenElements()*/
-			//TODO self closing
+			c.insertHTMLElementForToken(t)
+			spec.Pop(&c.stackOfOpenElements)
+			// ack self closing
 			return false, inTable, generalParseError
 		case "form":
-			/*if c.SearchOpenElements(templateElement) || c.formPointer != nil {
+			if len(c.containedInStackOpenElements("template")) != 0 ||
+				c.formElementPointer != nil {
 				return false, inTable, generalParseError
 			}
 
-			c.WriteHTMLElement(t)*/
-			//			c.formPointer =
-			//c.PopOpenElements()
+			elem := c.insertHTMLElementForToken(t)
+			c.formElementPointer = elem
+			spec.Pop(&c.stackOfOpenElements)
 		}
 	case endTagToken:
 		switch t.TagName {
 		case "table":
-			for _, n := range c.stackOfOpenElements {
-				if n.NodeName == "table" && c.elementInTableScope(n) {
-					for {
-						node := spec.Pop(&c.stackOfOpenElements)
-						if node.NodeName == "table" {
-							break
-						}
-					}
-					return false, c.resetInsertionMode(), noError
-				}
-			}
+			mode := inTable
+			c.stackContainsInScope("table", c.elementInTableScope, func() {
+				spec.PopUntil(&c.stackOfOpenElements, "table")
+				mode = c.resetInsertionMode()
+			}, true)
 
-			return false, inTable, generalParseError
+			return false, mode, generalParseError
 		case "body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr":
+			return false, inTable, generalParseError
 		case "template":
+			return c.useRulesFor(t, inTable, inHead)
 		}
+	case endOfFileToken:
+		return c.useRulesFor(t, inTable, inBody)
 	}
-	c.useRulesFor(t, inTable, inBody)
-	return false, initial, generalParseError
+	return c.defaultInTableModeHandler(t)
 }
 func (c *HTMLTreeConstructor) inTableTextModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case characterToken:
-	case commentToken:
-	case docTypeToken:
-	case startTagToken:
-	case endTagToken:
-	default:
+		if t.Data == "\u0000" {
+			return false, inTableText, generalParseError
+		}
+		c.pendingTableCharacterTokens = append(c.pendingTableCharacterTokens, t)
+		return false, inTableText, noError
 	}
-	return false, initial, noError
+
+	isWhitespace := false
+	for _, tok := range c.pendingTableCharacterTokens {
+		if isASCIIWhitespace(int(tok.Data[0])) {
+			isWhitespace = true
+		}
+	}
+
+	for _, tok := range c.pendingTableCharacterTokens {
+		if isWhitespace {
+			c.defaultInTableModeHandler(tok)
+		} else {
+			c.insertCharacter(tok)
+		}
+	}
+	return true, c.originalInsertionMode, noError
 }
 func (c *HTMLTreeConstructor) inCaptionModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
@@ -1604,10 +1793,8 @@ func (c *HTMLTreeConstructor) inColumnGroupModeHandler(t *Token) (bool, insertio
 	return false, initial, noError
 }
 func (c *HTMLTreeConstructor) inTableBodyModeHandler(t *Token) (bool, insertionMode, parseError) {
+	err := noError
 	switch t.TokenType {
-	case characterToken:
-	case commentToken:
-	case docTypeToken:
 	case startTagToken:
 		switch t.TagName {
 		case "tr":
@@ -1622,50 +1809,137 @@ func (c *HTMLTreeConstructor) inTableBodyModeHandler(t *Token) (bool, insertionM
 			}
 			c.insertHTMLElementForToken(tr)
 			return true, inRow, generalParseError
+		case "caption", "col", "colgroup", "tbody", "tfoot", "thead":
+			repro := true
+			next := inTable
+			c.stackContainsInScope("tbody", c.elementInTableScope, func() {
+				c.stackContainsInScope("thead", c.elementInTableScope, func() {
+					c.stackContainsInScope("tfoot", c.elementInTableScope, func() {
+						repro = false
+						next = inTableBody
+						err = generalParseError
+					}, false)
+				}, false)
+			}, false)
+
+			if repro {
+				c.clearStackBackToTableBody()
+				spec.Pop(&c.stackOfOpenElements)
+			}
+
+			return repro, next, err
 		}
 	case endTagToken:
 		switch t.TagName {
+		case "tbody", "tfoot", "thead":
+			next := inTableBody
+			repro := false
+			err = generalParseError
+			c.stackContainsInScope(t.TagName, c.elementInTableScope, func() {
+				c.clearStackBackToTableBody()
+				spec.Pop(&c.stackOfOpenElements)
+				next = inTable
+				err = noError
+				repro = true
+			}, true)
+
+			return repro, next, err
 		case "table":
-			for _, n := range c.stackOfOpenElements {
-				if (n.NodeName == "tbody" || n.NodeName == "thead" || n.NodeName == "tfoot") &&
-					c.elementInTableScope(n) {
-					c.clearStackBackToTableBody()
-					spec.Pop(&c.stackOfOpenElements)
-					return true, inTable, noError
-				}
+			repro := true
+			next := inTable
+			c.stackContainsInScope("tbody", c.elementInTableScope, func() {
+				c.stackContainsInScope("thead", c.elementInTableScope, func() {
+					c.stackContainsInScope("tfoot", c.elementInTableScope, func() {
+						repro = false
+						next = inTableBody
+						err = generalParseError
+					}, false)
+				}, false)
+			}, false)
+
+			if repro {
+				c.clearStackBackToTableBody()
+				spec.Pop(&c.stackOfOpenElements)
 			}
 
+			return repro, next, err
+		case "body", "caption", "col", "colgroup", "html", "td", "th", "tr":
 			return false, inTableBody, generalParseError
 		}
-	default:
 	}
-	return false, initial, noError
+	return c.useRulesFor(t, inTableBody, inTable)
 }
 func (c *HTMLTreeConstructor) inRowModeHandler(t *Token) (bool, insertionMode, parseError) {
+	err := noError
 	switch t.TokenType {
-	case characterToken:
-	case commentToken:
-	case docTypeToken:
 	case startTagToken:
 		switch t.TagName {
 		case "th", "td":
 			c.clearStackBackToTableRow()
 			c.insertHTMLElementForToken(t)
 			spec.Push(&c.activeFormattingElements, spec.ScopeMarker)
-			return false, inCell, noError
-		}
-	case endTagToken:
-		for _, n := range c.stackOfOpenElements {
-			if n.NodeName == "tr" && c.elementInTableScope(n) {
+			return false, inCell, err
+		case "caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr":
+			next := inRow
+			repro := false
+			c.stackContainsInScope("tr", c.elementInTableScope, func() {
 				c.clearStackBackToTableRow()
 				spec.Pop(&c.stackOfOpenElements)
-				return true, inTableBody, noError
+				next = inTableBody
+				repro = true
+			}, true)
+			if !repro {
+				err = generalParseError
 			}
+
+			return repro, next, err
 		}
-		return false, inRow, generalParseError
-	default:
+	case endTagToken:
+		switch t.TagName {
+		case "tr":
+			next := inRow
+			c.stackContainsInScope("tr", c.elementInTableScope, func() {
+				c.clearStackBackToTableRow()
+				spec.Pop(&c.stackOfOpenElements)
+				next = inTableBody
+			}, true)
+			if next == inRow {
+				err = generalParseError
+			}
+
+			return false, next, err
+		case "table":
+			next := inRow
+			repro := false
+			c.stackContainsInScope("tr", c.elementInTableScope, func() {
+				c.clearStackBackToTableRow()
+				spec.Pop(&c.stackOfOpenElements)
+				next = inTableBody
+				repro = true
+			}, true)
+			if !repro {
+				err = generalParseError
+			}
+
+			return repro, next, err
+		case "tbody", "tfoot", "thead":
+			next := inRow
+			repro := false
+			c.stackContainsInScope(t.TagName, c.elementInTableScope, func() {
+				c.stackContainsInScope("tr", c.elementInTableScope, func() {
+					c.clearStackBackToTableRow()
+					spec.Pop(&c.stackOfOpenElements)
+					next = inTableBody
+					repro = true
+				}, false)
+			}, true)
+
+			return repro, next, err
+		case "body", "caption", "col", "colgroup", "html", "td", "th":
+			return false, inRow, generalParseError
+		}
 	}
-	return false, initial, noError
+	return c.useRulesFor(t, inRow, inTable)
 }
 
 func (c *HTMLTreeConstructor) closeCell() (bool, insertionMode, parseError) {
@@ -1682,39 +1956,116 @@ func (c *HTMLTreeConstructor) closeCell() (bool, insertionMode, parseError) {
 		}
 	}
 	c.clearListOfActiveFormattingElementsToLastMarker()
-	return true, inRow, err
+	return false, inRow, err
 }
 
 func (c *HTMLTreeConstructor) inCellModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
-	case characterToken:
-	case commentToken:
-	case docTypeToken:
 	case startTagToken:
+		switch t.TagName {
+		case "caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr":
+			repro := false
+			err := noError
+			c.stackContainsInScope("th", c.elementInTableScope, func() {
+				c.stackContainsInScope("td", c.elementInTableScope, func() {
+					repro = true
+					err = generalParseError
+					c.closeCell()
+				}, true)
+			}, true)
+			return repro, inCell, err
+		}
 	case endTagToken:
 		switch t.TagName {
-		case "table", "tbody", "tfoot", "thead", "tr":
-			for _, n := range c.stackOfOpenElements {
-				if n.NodeName == webidl.DOMString(t.TagName) && c.elementInTableScope(n) {
-					return c.closeCell()
+		case "td", "th":
+			err := noError
+			next := inCell
+			c.stackContainsInScope(t.TagName, c.elementInTableScope, func() {
+				c.generateImpliedEndTags([]webidl.DOMString{})
+				if c.getCurrentNode().NodeName != webidl.DOMString(t.TagName) {
+					err = generalParseError
 				}
-			}
+				spec.PopUntil(&c.stackOfOpenElements, webidl.DOMString(t.TagName))
+				spec.PopUntil(&c.activeFormattingElements, spec.ScopeMarker.NodeName)
+				next = inRow
+			}, true)
+
+			return false, next, err
+		case "body", "caption", "col", "colgroup", "html":
 			return false, inCell, generalParseError
+		case "table", "tbody", "tfoot", "thead", "tr":
+			repro := false
+			next := inCell
+			err := noError
+			c.stackContainsInScope(t.TagName, c.elementInTableScope, func() {
+				_, next, err = c.closeCell()
+				repro = true
+			}, true)
+			return repro, next, err
 		}
-	default:
 	}
 	return c.useRulesFor(t, inCell, inBody)
 }
+
 func (c *HTMLTreeConstructor) inSelectModeHandler(t *Token) (bool, insertionMode, parseError) {
+	err := noError
 	switch t.TokenType {
 	case characterToken:
+		if t.Data == "\u0000" {
+			err = generalParseError
+		} else {
+			c.insertCharacter(t)
+		}
 	case commentToken:
+		c.insertComment(t)
 	case docTypeToken:
+		err = generalParseError
 	case startTagToken:
+		switch t.TagName {
+		case "html":
+		case "option":
+			if c.getCurrentNode().NodeName == "option" {
+				spec.Pop(&c.stackOfOpenElements)
+			}
+			c.insertHTMLElementForToken(t)
+		case "optgroup":
+			if c.getCurrentNode().NodeName == "option" {
+				spec.Pop(&c.stackOfOpenElements)
+			}
+
+			if c.getCurrentNode().NodeName == "optgroup" {
+				spec.Pop(&c.stackOfOpenElements)
+			}
+			c.insertHTMLElementForToken(t)
+		case "select":
+			err = generalParseError
+			selectScope := false
+			c.stackContainsInScope("select", c.elementInSelectScope, func() {
+				selectScope = true
+			}, true)
+			if !selectScope {
+				err = generalParseError
+			} else {
+				spec.PopUntil(&c.stackOfOpenElements, "select")
+				return false, c.resetInsertionMode(), err
+			}
+		case "input", "keygen", "textarea":
+		case "script", "template":
+
+		}
 	case endTagToken:
+		switch t.TagName {
+		case "optgroup":
+		case "option":
+		case "select":
+		case "template":
+		}
+	case endOfFileToken:
+		return c.useRulesFor(t, inSelect, inBody)
 	default:
+		err = generalParseError
 	}
-	return false, initial, noError
+	return false, inSelect, err
 }
 func (c *HTMLTreeConstructor) inSelectInTableModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
@@ -1862,35 +2213,73 @@ func (c *HTMLTreeConstructor) ConstructTree() {
 	}()
 
 	var (
-		token           *Token
-		nextModeHandler treeConstructionModeHandler
-		nextMode        insertionMode
-		parseErr        parseError
-		reprocess       bool
+		token     *Token
+		nextMode  insertionMode
+		reprocess bool
 	)
 	for token = range c.tokenChannel {
-		fmt.Printf("token %+v\n", token)
 		if nextMode == stopParser {
 			break
 		}
-		nextModeHandler = c.mappings[nextMode]
-		reprocess, nextMode, parseErr = nextModeHandler(token)
-		fmt.Printf("reprocess: %t, mode: %s\n", reprocess, nextMode)
-		if c.config[debug] == 0 {
-			logError(parseErr)
+		nextMode, reprocess = c.processToken(token, nextMode)
+		for reprocess {
+			nextMode, reprocess = c.processToken(token, nextMode)
+		}
+	}
+}
+
+var tagStateMappings = map[string][]insertionMode{
+	"script":    {inHead},
+	"noembed":   {inBody},
+	"noscript":  {inHead, inBody},
+	"textarea":  {inBody},
+	"iframe":    {inBody},
+	"noframes":  {inHead},
+	"style":     {inHead},
+	"title":     {inHead},
+	"plaintext": {inBody},
+	"xmp":       {inBody},
+}
+
+func specialTokenWrongState(token *Token, nextMode insertionMode) bool {
+	if token.TokenType != startTagToken {
+		return false
+	}
+
+	if nextMode != inHead && nextMode != inBody {
+		return false
+	}
+
+	for tag, states := range tagStateMappings {
+		if token.TagName != tag {
+			continue
 		}
 
-		for {
-			if !reprocess {
-				break
-			}
-
-			nextModeHandler = c.mappings[nextMode]
-			reprocess, nextMode, parseErr = nextModeHandler(token)
-			fmt.Printf("reprocess: %t, mode: %s\n", reprocess, nextMode)
-			if c.config[debug] == 0 {
-				logError(parseErr)
+		for _, state := range states {
+			if nextMode == state {
+				return true
 			}
 		}
 	}
+
+	return false
+}
+
+func (c *HTMLTreeConstructor) processToken(token *Token, nextMode insertionMode) (insertionMode, bool) {
+	var (
+		reprocess bool
+		parseErr  parseError
+	)
+	fmt.Printf("token: %+v\n mode: %s\n", token, c.curInsertionMode)
+	reprocess, c.curInsertionMode, parseErr = c.mappings[nextMode](token)
+	if c.config[debug] == 0 {
+		logError(parseErr)
+	}
+	// if we didn't consume the token, we don't want to check this state
+	// only check if the token is in this special state when we are in our
+	// consuming token state
+	if !reprocess && specialTokenWrongState(token, c.curInsertionMode) {
+		c.stateChannel <- dataState
+	}
+	return c.curInsertionMode, reprocess
 }

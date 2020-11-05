@@ -1,5 +1,4 @@
 package spec
 
-type HTMLTrElement struct {
-	*HTMLElement
+type HTMLTr struct {
 }

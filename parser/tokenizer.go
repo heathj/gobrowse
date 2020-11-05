@@ -22,6 +22,7 @@ type HTMLTokenizer struct {
 	returnState             tokenizerState
 	htmlReader              *bufio.Reader
 	tokenChannel            chan *Token
+	stateChannel            chan tokenizerState
 	wg                      sync.WaitGroup
 	mappings                map[tokenizerState]parserStateHandler
 	tokenBuilder            *TokenBuilder
@@ -30,20 +31,21 @@ type HTMLTokenizer struct {
 
 // NewHTMLTokenizer creates an HTML parser that can be used to process
 // an HTML string.
-func NewHTMLTokenizer(htmlStr string, config htmlParserConfig) (*HTMLTokenizer, chan *Token, *sync.WaitGroup) {
+func NewHTMLTokenizer(htmlStr string, config htmlParserConfig) (*HTMLTokenizer, chan *Token, chan tokenizerState, *sync.WaitGroup) {
 	tokenChannel := make(chan *Token, 10)
-
+	stateChannel := make(chan tokenizerState, 5)
 	p := &HTMLTokenizer{
 		returnState:  dataState,
 		config:       config,
 		htmlReader:   bufio.NewReader(strings.NewReader(htmlStr)),
+		stateChannel: stateChannel,
 		tokenChannel: tokenChannel,
 		tokenBuilder: newTokenBuilder(),
 	}
 
 	createMappings(p)
 
-	return p, tokenChannel, &p.wg
+	return p, tokenChannel, stateChannel, &p.wg
 }
 
 func createMappings(p *HTMLTokenizer) {
@@ -231,8 +233,14 @@ func (p *HTMLTokenizer) emit(tok Token) {
 		}
 	} else if tok.TokenType == startTagToken {
 		p.lastEmittedStartTagName = tok.TagName
+
 	}
 	p.tokenChannel <- &tok
+}
+
+func (p *HTMLTokenizer) emitAndWait(tok Token) tokenizerState {
+	p.emit(tok)
+	return <-p.stateChannel
 }
 
 func (p *HTMLTokenizer) isEndOfFile() bool {
@@ -382,8 +390,7 @@ func (p *HTMLTokenizer) tagNameStateParser(r rune) (bool, tokenizerState, parseE
 	case '/':
 		return false, selfClosingStartTagState, noError
 	case '>':
-		p.emitCurrentTag()
-		return false, dataState, noError
+		return false, p.emitCurrentTag(), noError
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
@@ -456,8 +463,7 @@ func (p *HTMLTokenizer) rcDataEndTagNameStateParser(r rune) (bool, tokenizerStat
 		return p.defaultRcDataEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			p.emitCurrentTag()
-			return false, dataState, noError
+			return false, p.emitCurrentTag(), noError
 		}
 		return p.defaultRcDataEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -533,8 +539,7 @@ func (p *HTMLTokenizer) rawTextEndTagNameStateParser(r rune) (bool, tokenizerSta
 		return p.defaultRawTextEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			p.emitCurrentTag()
-			return false, dataState, noError
+			return false, p.emitCurrentTag(), noError
 		}
 		return p.defaultRawTextEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -612,8 +617,7 @@ func (p *HTMLTokenizer) scriptDataEndTagNameStateParser(r rune) (bool, tokenizer
 		return p.defaultScriptDataEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			p.emitCurrentTag()
-			return false, dataState, noError
+			return false, p.emitCurrentTag(), noError
 		}
 		return p.defaultScriptDataEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -774,8 +778,7 @@ func (p *HTMLTokenizer) scriptDataEscapedEndTagNameStateParser(r rune) (bool, to
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			p.emitCurrentTag()
-			return false, dataState, noError
+			return false, p.emitCurrentTag(), noError
 		}
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -977,8 +980,7 @@ func (p *HTMLTokenizer) afterAttributeNameStateParser(r rune) (bool, tokenizerSt
 	case '=':
 		return false, beforeAttributeValueState, noError
 	case '>':
-		p.emitCurrentTag()
-		return false, dataState, noError
+		return false, p.emitCurrentTag(), noError
 	default:
 		return true, attributeNameState, noError
 	}
@@ -997,8 +999,7 @@ func (p *HTMLTokenizer) beforeAttributeValueStateParser(r rune) (bool, tokenizer
 		return false, attributeValueSingleQuotedState, noError
 	case '>':
 		p.tokenBuilder.CommitAttribute()
-		p.emitCurrentTag()
-		return false, dataState, missingAttributeValue
+		return false, p.emitCurrentTag(), missingAttributeValue
 	default:
 		return true, attributeValueUnquotedState, noError
 	}
@@ -1061,8 +1062,7 @@ func (p *HTMLTokenizer) attributeValueUnquotedStateParser(r rune) (bool, tokeniz
 		return false, characterReferenceState, noError
 	case '>':
 		p.tokenBuilder.CommitAttribute()
-		p.emitCurrentTag()
-		return false, dataState, noError
+		return false, p.emitCurrentTag(), noError
 	case '\u0000':
 		p.tokenBuilder.WriteAttributeValue('\uFFFD')
 		return false, attributeValueUnquotedState, unexpectedNullCharacter
@@ -1086,8 +1086,7 @@ func (p *HTMLTokenizer) afterAttributeValueQuotedStateParser(r rune) (bool, toke
 	case '/':
 		return false, selfClosingStartTagState, noError
 	case '>':
-		p.emitCurrentTag()
-		return false, dataState, noError
+		return false, p.emitCurrentTag(), noError
 	default:
 		return true, beforeAttributeNameState, missingWhitespaceBetweenAttributes
 	}
@@ -1101,8 +1100,7 @@ func (p *HTMLTokenizer) selfClosingStartTagStateParser(r rune) (bool, tokenizerS
 	switch r {
 	case '>':
 		p.tokenBuilder.EnableSelfClosing()
-		p.emitCurrentTag()
-		return false, dataState, noError
+		return false, p.emitCurrentTag(), noError
 	default:
 		return true, beforeAttributeNameState, unexpectedSolidusInTag
 	}
@@ -2083,12 +2081,20 @@ func (p *HTMLTokenizer) numericCharacterReferenceEndStateParser(r rune) (bool, t
 	return false, p.returnState, err
 }
 
-func (p *HTMLTokenizer) emitCurrentTag() {
+func (p *HTMLTokenizer) emitCurrentTag() tokenizerState {
 	if p.tokenBuilder.curTagType == startTag {
-		p.emit(p.tokenBuilder.StartTagToken())
+		tok := p.tokenBuilder.StartTagToken()
+		switch tok.TagName {
+		case "title", "textarea", "style", "xmp", "iframe", "noembed", "noframes", "script", "noscript",
+			"plaintext":
+			return p.emitAndWait(tok)
+		}
+		p.emit(tok)
 	} else {
 		p.emit(p.tokenBuilder.EndTagToken())
 	}
+
+	return dataState
 }
 
 // a stateHandler is a func that takes in a rune
@@ -2282,10 +2288,8 @@ func (p *HTMLTokenizer) tokenizeUntilEOF(nextState tokenizerState) tokenizerStat
 	var (
 		reconsume bool
 		err       error
-		parseErr  parseError
 		r         rune
 	)
-	nextStateHandler := p.mappings[nextState]
 	for {
 		r, _, err = p.htmlReader.ReadRune()
 		if err != nil {
@@ -2296,20 +2300,11 @@ func (p *HTMLTokenizer) tokenizeUntilEOF(nextState tokenizerState) tokenizerStat
 		}
 
 		r = p.normalizeNewlines(r)
-
-		reconsume, nextState, parseErr = nextStateHandler(r)
-		if p.config[debug] == 1 {
-			logError(parseErr)
-		}
-		nextStateHandler = p.mappings[nextState]
+		reconsume, nextState = p.processRune(r, nextState)
 		// if the previous state says to reconsume,
 		// use the same rune
 		for reconsume {
-			reconsume, nextState, parseErr = nextStateHandler(r)
-			if p.config[debug] == 1 {
-				logError(parseErr)
-			}
-			nextStateHandler = p.mappings[nextState]
+			reconsume, nextState = p.processRune(r, nextState)
 		}
 	}
 
@@ -2321,18 +2316,20 @@ func (p *HTMLTokenizer) tokenizeUntilEOF(nextState tokenizerState) tokenizerStat
 // loop through any reconsumes until we get one.
 func (p *HTMLTokenizer) tokenizeEOF(nextState tokenizerState) {
 	var (
-		nextStateHandler parserStateHandler
-		reconsume        bool = true
-		parseErr         parseError
-		r                rune
+		reconsume bool = true
+		r         rune
 	)
 
 	for reconsume {
-		// last state
-		nextStateHandler = p.mappings[nextState]
-		reconsume, nextState, parseErr = nextStateHandler(r)
-		if p.config[debug] == 1 {
-			logError(parseErr)
-		}
+		reconsume, nextState = p.processRune(r, nextState)
 	}
+}
+
+func (p *HTMLTokenizer) processRune(r rune, nextState tokenizerState) (bool, tokenizerState) {
+	reconsume, nextState, parseErr := p.mappings[nextState](r)
+	if p.config[debug] == 1 {
+		logError(parseErr)
+	}
+
+	return reconsume, nextState
 }

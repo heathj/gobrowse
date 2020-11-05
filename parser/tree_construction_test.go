@@ -15,7 +15,7 @@ type treeTest struct {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -75,7 +75,7 @@ func serializeNodeType(node *spec.Node) string {
 	case spec.TextNode:
 		return "\"" + string(node.Text.Data) + "\""
 	case spec.CommentNode:
-		return "<!--" + string(node.Comment.Data) + " -->"
+		return "<!-- " + string(node.Comment.Data) + " -->"
 	case spec.DocumentTypeNode:
 		d := "<!DOCTYPE " + string(node.DocumentType.Name)
 		if len(node.DocumentType.PublicID) == 0 && len(node.DocumentType.SystemID) == 0 {
@@ -128,8 +128,8 @@ func TestTreeConstructor(t *testing.T) {
 func runTreeConstructorTest(test treeTest, t *testing.T) {
 	t.Run(test.in, func(t *testing.T) {
 		t.Parallel()
-		p, tcc, wg := NewHTMLTokenizer(test.in, htmlParserConfig{debug: 0})
-		tc := NewHTMLTreeConstructor(tcc, wg)
+		p, tcc, sc, wg := NewHTMLTokenizer(test.in, htmlParserConfig{debug: 0})
+		tc := NewHTMLTreeConstructor(tcc, sc, wg)
 		wg.Add(3)
 		go tc.ConstructTree()
 		go p.Tokenize()

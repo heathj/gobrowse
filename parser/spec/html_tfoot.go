@@ -1,5 +1,4 @@
 package spec
 
-type HTMLTFootElement struct {
-	*HTMLElement
+type HTMLTFoot struct {
 }

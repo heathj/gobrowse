@@ -31,6 +31,16 @@ func Pop(h *NodeList) *Node {
 	return popped
 }
 
+func PopUntil(h *NodeList, tagName webidl.DOMString) {
+	var popped *Node
+	for {
+		popped = Pop(h)
+		if popped == nil || popped.NodeName == tagName {
+			break
+		}
+	}
+}
+
 func Push(h *NodeList, n *Node) {
 	*h = append(*h, n)
 }
@@ -63,6 +73,20 @@ const (
 
 var ScopeMarker = &Node{
 	NodeType: ScopeMarkerNode,
+	NodeName: "marker",
+}
+
+// NewComment returns a comment node with its Data section filled.
+func NewComment(data webidl.DOMString, od *Node) *Node {
+	return &Node{
+		NodeType:      CommentNode,
+		OwnerDocument: od,
+		Comment: &Comment{
+			CharacterData: &CharacterData{
+				Data:   data,
+				Length: len(data),
+			},
+		}}
 }
 
 func NewHTMLDocumentNode() *HTMLDocument {
@@ -115,6 +139,7 @@ func NewDOMElement(od *Node, name, namespace webidl.DOMString, optionals ...webi
 			Prefix:       prefix,
 			LocalName:    name,
 			Attributes:   NewNamedNodeMap(map[string]string{}),
+			HTMLElement:  NewHTMLElement(name),
 		},
 	}
 }
@@ -187,7 +212,7 @@ func (n *Node) CloneNode(deep bool) *Node {
 		case TextNode:
 			copy.Text = NewText(n.Text.Data)
 		case CommentNode:
-			copy.Comment = NewComment(n.Comment.Data)
+			copy.Comment = NewComment(n.Comment.Data, n.OwnerDocument).Comment
 		case ProcessingInstructionNode:
 			copy.ProcessingInstruction = &ProcessingInstruction{}
 			copy.ProcessingInstruction.Target = n.ProcessingInstruction.Target
@@ -238,7 +263,22 @@ func (n *Node) Contains(on *Node) bool                                      { re
 func (n *Node) LookupPrefix(namespace webidl.DOMString) webidl.DOMString    { return "" }
 func (n *Node) LookupNamespaceURI(prefix webidl.DOMString) webidl.DOMString { return "" }
 func (n *Node) IsDefaultNamespace() bool                                    { return false }
-func (n *Node) InsertBefore(on, child *Node) *Node                          { return nil }
+func (n *Node) InsertBefore(on, child *Node) *Node {
+	for i := range n.ChildNodes {
+		if n.ChildNodes[i] == child {
+			n.ChildNodes = append(n.ChildNodes[:i+1], n.ChildNodes[i:]...)
+			n.ChildNodes[i] = on
+			on.ParentNode = n
+			on.NextSibling = child
+			if i == 0 {
+				n.FirstChild = on
+			} else {
+				on.PreviousSibling = n.ChildNodes[i-1]
+			}
+		}
+	}
+	return on
+}
 
 // didn't really follow the steps here because they seem complicated :/
 // https://dom.spec.whatwg.org/#concept-node-append

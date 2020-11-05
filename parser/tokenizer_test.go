@@ -10,200 +10,6 @@ import (
 	"testing"
 )
 
-type tokenizerCountTestCase struct {
-	inHTML    string  // a snippet of HTML to tokenize
-	outTokens []Token // the tokens in order that should be produced
-}
-
-var tokenizerAccuracyTests = []tokenizerCountTestCase{
-	{"<!--->", []Token{
-		{TokenType: commentToken, Data: ""},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!-->", []Token{
-		{TokenType: commentToken, Data: ""},
-		{TokenType: endOfFileToken},
-	}},
-	{"<head></head>", []Token{
-		{TokenType: startTagToken, TagName: "head"},
-		{TokenType: endTagToken, TagName: "head"},
-		{TokenType: endOfFileToken},
-	}},
-
-	{"<head>test</head>", []Token{
-		{TokenType: startTagToken, TagName: "head"},
-		{TokenType: characterToken, Data: "t"},
-		{TokenType: characterToken, Data: "e"},
-		{TokenType: characterToken, Data: "s"},
-		{TokenType: characterToken, Data: "t"},
-		{TokenType: endTagToken, TagName: "head"},
-		{TokenType: endOfFileToken},
-	}},
-
-	{"<html><head>test</head><body></body>", []Token{
-		{TokenType: startTagToken, TagName: "html"},
-		{TokenType: startTagToken, TagName: "head"},
-		{TokenType: characterToken, Data: "t"},
-		{TokenType: characterToken, Data: "e"},
-		{TokenType: characterToken, Data: "s"},
-		{TokenType: characterToken, Data: "t"},
-		{TokenType: endTagToken, TagName: "head"},
-		{TokenType: startTagToken, TagName: "body"},
-		{TokenType: endTagToken, TagName: "body"},
-		{TokenType: endOfFileToken}}},
-
-	{"<body><div><h1><b></b></h1></div></body>", []Token{
-		{TokenType: startTagToken, TagName: "body"},
-		{TokenType: startTagToken, TagName: "div"},
-		{TokenType: startTagToken, TagName: "h1"},
-		{TokenType: startTagToken, TagName: "b"},
-		{TokenType: endTagToken, TagName: "b"},
-		{TokenType: endTagToken, TagName: "h1"},
-		{TokenType: endTagToken, TagName: "div"},
-		{TokenType: endTagToken, TagName: "body"},
-		{TokenType: endOfFileToken}}},
-
-	{"<script src='123' onload='test'></script>", []Token{
-		{TokenType: startTagToken, TagName: "script"},
-		{TokenType: endTagToken, TagName: "script"},
-		{TokenType: endOfFileToken}}},
-
-	{"\u0000", []Token{
-		{TokenType: characterToken, Data: "\u0000"},
-		{TokenType: endOfFileToken}}},
-
-	{"<4 asdf=123>", []Token{
-		{TokenType: characterToken, Data: "<"},
-		{TokenType: characterToken, Data: "4"},
-		{TokenType: characterToken, Data: " "},
-		{TokenType: characterToken, Data: "a"},
-		{TokenType: characterToken, Data: "s"},
-		{TokenType: characterToken, Data: "d"},
-		{TokenType: characterToken, Data: "f"},
-		{TokenType: characterToken, Data: "="},
-		{TokenType: characterToken, Data: "1"},
-		{TokenType: characterToken, Data: "2"},
-		{TokenType: characterToken, Data: "3"},
-		{TokenType: characterToken, Data: ">"},
-		{TokenType: endOfFileToken}}},
-
-	{"</script>", []Token{
-		{TokenType: endTagToken, TagName: "script"},
-		{TokenType: endOfFileToken}}},
-
-	{"</", []Token{
-		{TokenType: characterToken, Data: "<"},
-		{TokenType: characterToken, Data: "/"},
-		{TokenType: endOfFileToken}},
-	},
-	{"<!--test comment-->", []Token{
-		{TokenType: commentToken, Data: "test comment"},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!-- test comment -->", []Token{
-		{TokenType: commentToken, Data: " test comment "},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!-- test comment- -->", []Token{
-		{TokenType: commentToken, Data: " test comment- "},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!-- test comment\u0000 -->", []Token{
-		{TokenType: commentToken, Data: " test comment\uFFFD "},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!--<!--nested comment--> t-->", []Token{
-		{TokenType: commentToken, Data: "<!--nested comment"},
-		{TokenType: characterToken, Data: " "},
-		{TokenType: characterToken, Data: "t"},
-		{TokenType: characterToken, Data: "-"},
-		{TokenType: characterToken, Data: "-"},
-		{TokenType: characterToken, Data: ">"},
-		{TokenType: endOfFileToken},
-	}},
-	{"<b>&amp;</b>", []Token{
-		{TokenType: startTagToken, TagName: "b"},
-		{TokenType: characterToken, Data: "&"},
-		{TokenType: endTagToken, TagName: "b"},
-		{TokenType: endOfFileToken},
-	}},
-	{"<b>&amp</b>", []Token{
-		{TokenType: startTagToken, TagName: "b"},
-		{TokenType: characterToken, Data: "&"},
-		{TokenType: endTagToken, TagName: "b"},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!DOCTYPE html>", []Token{
-		{TokenType: docTypeToken, TagName: "html"},
-		{TokenType: endOfFileToken},
-	}},
-	{"<!DOCTYPE HTML>", []Token{
-		{TokenType: docTypeToken, TagName: "html"},
-		{TokenType: endOfFileToken},
-	}},
-}
-
-// TestTokenizerAccuracy takes in HTML strings and collects
-// their tokens. Then, based on the token types it generates
-// it compares these to the expected token values. No attributes
-// are checked since those are checked in a different test suite.
-func TestTokenizerAccuracy(t *testing.T) {
-	for _, tt := range tokenizerAccuracyTests {
-		runTestTokenizerCountTests(tt, t)
-	}
-}
-
-// helper function to parallelize the above test
-func runTestTokenizerCountTests(tt tokenizerCountTestCase, t *testing.T) {
-	t.Run(tt.inHTML, func(t *testing.T) {
-		t.Parallel()
-		retChan := make(chan int, 1)
-		p, tc, _ := NewHTMLTokenizer(tt.inHTML, nil)
-
-		go func(tc chan *Token, retChan chan int) {
-			i := 0
-			var token *Token
-			for {
-				token = <-tc
-				if i >= len(tt.outTokens) {
-					break
-				}
-				if token.TokenType != tt.outTokens[i].TokenType {
-					t.Errorf("Expected token type of %s, got %s", tt.outTokens[i].TokenType.String(), token.TokenType.String())
-				}
-
-				switch token.TokenType {
-				case endTagToken, startTagToken:
-					if token.SelfClosing != tt.outTokens[i].SelfClosing {
-						t.Errorf("Expected %s selfclosing flag to be %t, got %t", token.TokenType.String(), tt.outTokens[i].SelfClosing, token.SelfClosing)
-					}
-					if token.TagName != tt.outTokens[i].TagName {
-						t.Errorf("Expected %s tag name of %s, got %s", token.TokenType.String(), tt.outTokens[i].TagName, token.TagName)
-					}
-				case characterToken, commentToken:
-					if token.Data != tt.outTokens[i].Data {
-						t.Errorf("Expected character of %s, got %s", tt.outTokens[i].Data, token.Data)
-					}
-				}
-
-				i++
-				if token.TokenType == endOfFileToken {
-					break
-				}
-
-			}
-
-			retChan <- i
-		}(tc, retChan)
-
-		go p.Tokenize()
-		i := <-retChan
-		if i != len(tt.outTokens) {
-			t.Errorf("Expected %d tokens but got %d", len(tt.outTokens), i)
-		}
-	})
-}
-
 type tokezinerAttributeAccuracyTestcase struct {
 	inHTML string            // snippet of HTML to tokenize (should only be one element)
 	attrs  map[string]string // expected attributes to collected from the first token that is produced
@@ -274,13 +80,14 @@ func runTestTokenizerAttributeAccuracy(tt tokezinerAttributeAccuracyTestcase, t 
 	t.Run(tt.inHTML, func(t *testing.T) {
 		t.Parallel()
 		retChan := make(chan *Token, 1)
-		p, tc, _ := NewHTMLTokenizer(tt.inHTML, nil)
+		p, tc, _, wg := NewHTMLTokenizer(tt.inHTML, nil)
 
 		go func(tc chan *Token, retChan chan *Token) {
 			token := <-tc
 			retChan <- token
 		}(tc, retChan)
 
+		wg.Add(2)
 		go p.Tokenize()
 		i := <-retChan
 		for k, v := range tt.attrs {
@@ -878,15 +685,9 @@ func runStateParserTest(testcase stateMachineTestCase, t *testing.T) {
 	testName := fmt.Sprintf("%s-%#U", testcase.startingState, testcase.inRune)
 	t.Run(testName, func(t *testing.T) {
 		t.Parallel()
-		p, _, _ := NewHTMLTokenizer("", htmlParserConfig{debug: 0})
-
-		// when tokens are emitted, they are sent to a channel. we need
-		// to consume them so the tests don't block.
-		go func(tokenChan chan *Token) {
-			for {
-				<-tokenChan
-			}
-		}(p.tokenChannel)
+		p, tcc, sc, wg := NewHTMLTokenizer("", htmlParserConfig{debug: 0})
+		tc := NewHTMLTreeConstructor(tcc, sc, wg)
+		go tc.ConstructTree()
 
 		reconsume, state, _ := p.mappings[testcase.startingState](testcase.inRune)
 		if state != testcase.nextExpectedState {
@@ -1051,15 +852,10 @@ func runParserStatefulnessTest(testcase parserStatefulnessTestCase, t *testing.T
 	testName := fmt.Sprintf("%s-%s", testcase.startState, testcase.inHTML)
 	t.Run(testName, func(t *testing.T) {
 		t.Parallel()
-		p, _, _ := NewHTMLTokenizer(testcase.inHTML, htmlParserConfig{debug: 0})
-
-		// when tokens are emitted, they are sent to a channel. we need
-		// to consume them so the tests don't block.
-		go func(tokenChan chan *Token) {
-			for {
-				<-tokenChan
-			}
-		}(p.tokenChannel)
+		p, tcc, sc, wg := NewHTMLTokenizer(testcase.inHTML, htmlParserConfig{debug: 0})
+		tc := NewHTMLTreeConstructor(tcc, sc, wg)
+		wg.Add(1)
+		go tc.ConstructTree()
 
 		// run through all the runes and then check the state at the end.
 		// I'm also wanting to start a certain state so that is what I am doing with this function
@@ -1067,7 +863,8 @@ func runParserStatefulnessTest(testcase parserStatefulnessTestCase, t *testing.T
 		if testcase.setup != nil {
 			testcase.setup(p)
 		}
-		p.tokenizeUntilEOF(testcase.startState)
+		go p.tokenizeUntilEOF(testcase.startState)
+		wg.Wait()
 		answer, expected := testcase.testFunc(p)
 		if expected != answer {
 			t.Errorf("Expected %X, but got %X", expected, answer)
@@ -1297,9 +1094,13 @@ func runHTML5Test(test HTML5Test, t *testing.T) {
 		}
 		o := formatOutputs(test.Output, test.DoubleEscaped)
 		for i := 0; i < len(test.InitialStates); i++ {
-			p, tc, _ := NewHTMLTokenizer(test.Input, htmlParserConfig{debug: 0})
+			p, tc, sc, wg := NewHTMLTokenizer(test.Input, htmlParserConfig{debug: 0})
+			wg.Add(3)
+			pc := make(chan *Token, 10)
+			htc := NewHTMLTreeConstructor(pc, sc, wg)
+			go htc.ConstructTree()
 			errorChan := make(chan error, 5)
-			go func(tokenChan chan *Token, errorChan chan error, expectedTokens []Token) {
+			go func(tokenChan, proxyChan chan *Token, errorChan chan error, expectedTokens []Token) {
 				defer close(errorChan)
 				j := 0
 				for tok := range tokenChan {
@@ -1315,12 +1116,13 @@ func runHTML5Test(test HTML5Test, t *testing.T) {
 					}
 					j++
 
+					proxyChan <- tok
 				}
 
 				if j != len(expectedTokens) {
 					errorChan <- fmt.Errorf("Got the wrong number of tokens. Expected %d, got %d", len(expectedTokens), j)
 				}
-			}(tc, errorChan, o)
+			}(tc, pc, errorChan, o)
 
 			initState, err := getInitState(test.InitialStates[i])
 			if err != nil {

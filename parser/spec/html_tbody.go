@@ -1,5 +1,4 @@
 package spec
 
-type HTMLTBodyElement struct {
-	*HTMLElement
+type HTMLTBody struct {
 }

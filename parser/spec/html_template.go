@@ -1,6 +1,5 @@
 package spec
 
-type HTMLTemplateElement struct {
+type HTMLTemplate struct {
 	content DocumentFragment
-	*HTMLElement
 }
