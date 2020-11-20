@@ -4,7 +4,7 @@ import (
 	"browser/parser/webidl"
 )
 
-func Contains(n *Node, h *NodeList) int {
+func (h *NodeList) Contains(n *Node) int {
 	for i := range *h {
 		if n == (*h)[i] {
 			return i
@@ -13,7 +13,7 @@ func Contains(n *Node, h *NodeList) int {
 	return -1
 }
 
-func Remove(i int, h *NodeList) *Node {
+func (h *NodeList) Remove(i int) *Node {
 	if i == -1 {
 		return nil
 	}
@@ -22,7 +22,7 @@ func Remove(i int, h *NodeList) *Node {
 	return node
 }
 
-func Pop(h *NodeList) *Node {
+func (h *NodeList) Pop() *Node {
 	if len(*h) == 0 {
 		return nil
 	}
@@ -31,17 +31,27 @@ func Pop(h *NodeList) *Node {
 	return popped
 }
 
-func PopUntil(h *NodeList, tagName webidl.DOMString) {
+func (h *NodeList) PopUntil(tagName webidl.DOMString) {
+	h.PopUntilMany([]webidl.DOMString{tagName})
+}
+
+func (h *NodeList) PopUntilMany(tagNames []webidl.DOMString) {
 	var popped *Node
 	for {
-		popped = Pop(h)
-		if popped == nil || popped.NodeName == tagName {
-			break
+		popped = h.Pop()
+		if popped == nil {
+			return
+		}
+
+		for _, tagName := range tagNames {
+			if popped.NodeName == tagName {
+				return
+			}
 		}
 	}
 }
 
-func Push(h *NodeList, n *Node) {
+func (h *NodeList) Push(n *Node) {
 	*h = append(*h, n)
 }
 
@@ -296,13 +306,12 @@ func (n *Node) ReplaceChild(on, child *Node) *Node { return nil }
 
 // TODO: not to spec yet, for some reason remove is like 50 steps. I'll come back to it
 func (n *Node) RemoveChild(child *Node) *Node {
-	node := Remove(Contains(child, &n.ChildNodes), &n.ChildNodes)
+	node := n.ChildNodes.Remove(n.ChildNodes.Contains(child))
 	if n.LastChild != nil {
-		if len(n.ChildNodes) >= 1 {
-			n.LastChild = n.LastChild.PreviousSibling
-			n.LastChild.NextSibling = nil
-		} else if len(n.ChildNodes) == 0 {
+		if len(n.ChildNodes) == 0 {
 			n.LastChild = nil
+		} else {
+			n.LastChild = n.ChildNodes[len(n.ChildNodes)-1]
 		}
 	}
 

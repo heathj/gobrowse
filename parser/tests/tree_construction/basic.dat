@@ -1,31 +1,38 @@
 #data
-<a><table><td><a><table></table><a></tr><a></table><b>X</b>C<a>Y
+<?COM--MENT?>
 #errors
-(1,3): expected-doctype-but-got-start-tag
-(1,14): unexpected-cell-in-table-body
-(1,35): unexpected-start-tag-implies-end-tag
-(1,40): unexpected-cell-end-tag
-(1,43): unexpected-start-tag-implies-table-voodoo
-(1,43): unexpected-start-tag-implies-end-tag
-(1,43): unexpected-end-tag
-(1,63): unexpected-start-tag-implies-end-tag
-(1,64): expected-closing-tag-but-got-eof
+(1,1): expected-tag-name-but-got-question-mark
+(1,13): expected-doctype-but-got-eof
+#new-errors
+(1:2) unexpected-question-mark-instead-of-tag-name
 #document
+| <!-- ?COM--MENT? -->
 | <html>
 |   <head>
 |   <body>
-|     <a>
-|       <a>
-|       <table>
-|         <tbody>
-|           <tr>
-|             <td>
-|               <a>
-|                 <table>
-|               <a>
-|     <a>
-|       <b>
-|         "X"
-|       "C"
-|     <a>
-|       "Y"
+
+#data
+<!COM--MENT>
+#errors
+(1,2): expected-dashes-or-doctype
+(1,12): expected-doctype-but-got-eof
+#new-errors
+(1:3) incorrectly-opened-comment
+#document
+| <!-- COM--MENT -->
+| <html>
+|   <head>
+|   <body>
+
+#data
+</ COM--MENT >
+#errors
+(1,2): expected-closing-tag-but-got-char
+(1,14): expected-doctype-but-got-eof
+#new-errors
+(1:3) invalid-first-character-of-tag-name
+#document
+| <!--  COM--MENT  -->
+| <html>
+|   <head>
+|   <body>

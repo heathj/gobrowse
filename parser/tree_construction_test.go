@@ -54,23 +54,28 @@ func parseTests(t *testing.T) []treeTest {
 	return treeTests
 }
 
-func serializeNodeType(node *spec.Node) string {
+func serializeNodeType(node *spec.Node, ident int) string {
 	switch node.NodeType {
 	case spec.ElementNode:
 		e := "<" + string(node.NodeName)
 		if node.Attributes != nil && len(node.Attributes.Attrs) != 0 {
-			e += "\n"
+			e += ">"
 			keys := make([]string, 0, len(node.Attributes.Attrs))
 			for name := range node.Attributes.Attrs {
 				keys = append(keys, name)
 			}
 			sort.Strings(keys)
+			spaces := "| "
+			for i := 1; i < ident; i++ {
+				spaces += "  "
+			}
 			for _, name := range keys {
 				value := node.Attributes.Attrs[name]
-				e += name + "=" + value + "\n"
+				e += "\n" + spaces + name + "=\"" + value + "\""
 			}
+		} else {
+			e += ">"
 		}
-		e += ">"
 		return e
 	case spec.TextNode:
 		return "\"" + string(node.Text.Data) + "\""
@@ -102,7 +107,7 @@ func serializeNodeType(node *spec.Node) string {
 }
 
 func serialize(node *spec.Node, ident int) string {
-	ser := serializeNodeType(node) + "\n"
+	ser := serializeNodeType(node, ident+1) + "\n"
 	if node.NodeType != spec.DocumentNode {
 		spaces := "| "
 		for i := 1; i < ident; i++ {
