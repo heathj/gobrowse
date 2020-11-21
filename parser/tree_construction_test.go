@@ -1,10 +1,7 @@
 package parser
 
 import (
-	"browser/parser/spec"
-	"fmt"
 	"io/ioutil"
-	"sort"
 	"strings"
 	"testing"
 )
@@ -15,7 +12,7 @@ type treeTest struct {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -54,74 +51,6 @@ func parseTests(t *testing.T) []treeTest {
 	return treeTests
 }
 
-func serializeNodeType(node *spec.Node, ident int) string {
-	switch node.NodeType {
-	case spec.ElementNode:
-		e := "<" + string(node.NodeName)
-		if node.Attributes != nil && len(node.Attributes.Attrs) != 0 {
-			e += ">"
-			keys := make([]string, 0, len(node.Attributes.Attrs))
-			for name := range node.Attributes.Attrs {
-				keys = append(keys, name)
-			}
-			sort.Strings(keys)
-			spaces := "| "
-			for i := 1; i < ident; i++ {
-				spaces += "  "
-			}
-			for _, name := range keys {
-				value := node.Attributes.Attrs[name]
-				e += "\n" + spaces + name + "=\"" + value + "\""
-			}
-		} else {
-			e += ">"
-		}
-		return e
-	case spec.TextNode:
-		return "\"" + string(node.Text.Data) + "\""
-	case spec.CommentNode:
-		return "<!-- " + string(node.Comment.Data) + " -->"
-	case spec.DocumentTypeNode:
-		d := "<!DOCTYPE " + string(node.DocumentType.Name)
-		if len(node.DocumentType.PublicID) == 0 && len(node.DocumentType.SystemID) == 0 {
-			return d
-		}
-		if len(node.DocumentType.PublicID) != 0 && string(node.DocumentType.PublicID) != missing {
-			d += " \"" + string(node.DocumentType.PublicID) + "\""
-		}
-		if len(node.DocumentType.SystemID) != 0 && string(node.DocumentType.SystemID) != missing {
-			d += " \"" + string(node.DocumentType.SystemID) + "\""
-		}
-
-		d += ">"
-		return d
-	case spec.DocumentNode:
-		return "#document"
-	case spec.ProcessingInstructionNode:
-		return "<?" + string(node.ProcessingInstruction.CharacterData.Data) + ">"
-	default:
-		fmt.Printf("Error serializing node: %+v\n", node)
-		return ""
-	}
-
-}
-
-func serialize(node *spec.Node, ident int) string {
-	ser := serializeNodeType(node, ident+1) + "\n"
-	if node.NodeType != spec.DocumentNode {
-		spaces := "| "
-		for i := 1; i < ident; i++ {
-			spaces += "  "
-		}
-		ser = spaces + ser
-	}
-	for _, child := range node.ChildNodes {
-		ser += serialize(child, ident+1)
-	}
-
-	return ser
-}
-
 func TestTreeConstructor(t *testing.T) {
 	tests := parseTests(t)
 	for _, test := range tests {
@@ -140,7 +69,7 @@ func runTreeConstructorTest(test treeTest, t *testing.T) {
 		go p.Tokenize()
 
 		wg.Wait()
-		s := serialize(tc.HTMLDocument.Node, 0)
+		s := tc.HTMLDocument.Node.String()
 
 		if s != test.expected {
 			t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)

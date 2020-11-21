@@ -619,7 +619,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		// 12
 		ca := c.stackOfOpenElements[si-1]
 		// 13
-		bm := c.activeFormattingElements[y]
+		bm := y
 
 		//14 inner loop
 		node := furthestBlock
@@ -640,25 +640,28 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 			}
 
 			// 14.6
-			if c.activeFormattingElements.Contains(node) != -1 {
+			if c.activeFormattingElements.Contains(node) == -1 {
 				c.stackOfOpenElements.Remove(c.stackOfOpenElements.Contains(node))
 				continue
 			}
 
 			// 14.7
-			elem := c.createElementForToken(t, "html", ca)
+			clone := node.CloneNode(false)
 			nif = c.activeFormattingElements.Contains(node)
 			if nif != -1 {
-				c.activeFormattingElements[nif] = elem
+				c.activeFormattingElements[nif] = clone
 			}
 			nis = c.stackOfOpenElements.Contains(node)
 			if nis != -1 {
-				c.stackOfOpenElements[nis] = elem
+				c.stackOfOpenElements[nis] = clone
 			}
+			// need to replace the node with the clone so that the references match
+			// up when replacing the bookmark below and append a child of the last node.
+			node = clone
 
 			// 14.8
 			if lastNode == furthestBlock {
-				bm = c.activeFormattingElements[nif+1]
+				bm = nif + 1
 			}
 			// 14.9
 			lastNode.ParentNode.RemoveChild(lastNode)
@@ -673,18 +676,21 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		if lastNode.ParentNode != nil {
 			lastNode.ParentNode.RemoveChild(lastNode)
 		}
-		ca.AppendChild(lastNode)
+		il := c.getAppropriatePlaceForInsertion(ca)
+		il.insert(lastNode)
 
 		// 16
-		clone := formattingElement.CloneNode(true)
+		clone := formattingElement.CloneNode(false)
 		clone.ParentNode = furthestBlock
 		// 17
-		for i, child := range furthestBlock.ChildNodes {
-
+		for len(furthestBlock.ChildNodes) > 0 {
 			// same as above, here. This step does NOT explicitly say to remove the children elements
 			// and move them, but the algorithm wouldn't really work otherwise.
-			furthestBlock.ChildNodes.Remove(i)
-			clone.AppendChild(child)
+			removed := furthestBlock.ChildNodes.Remove(0)
+			if removed == nil {
+				break
+			}
+			clone.AppendChild(removed)
 		}
 		// 18
 		furthestBlock.AppendChild(clone)
@@ -692,10 +698,15 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		f := c.activeFormattingElements.Contains(formattingElement)
 		if f != -1 {
 			c.activeFormattingElements.Remove(f)
-			b := c.activeFormattingElements.Contains(bm)
-			if b != -1 {
-				c.activeFormattingElements[b] = clone
+			// shifting the bookmark after removing the element above. we only shift
+			// though if the bookmark was later in the list. if f above was afer the bookmark
+			// position, the position wouldn't change:
+			// [1, 2, f, bm] -> [1, 2, bm] (position changed)
+			// [bm, 1, 2, f] -> [bm, 1, 2] (no position changed)
+			if f < bm {
+				bm--
 			}
+			c.activeFormattingElements.WedgeIn(bm, clone)
 		}
 
 		//20
@@ -1137,6 +1148,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 	case characterToken:
 		switch t.Data {
 		case "\u0009", "\u000A", "\u000C", "\u000D", "\u0020":
+			c.insertCharacter(t)
 			return false, inHead, noError
 		}
 	case commentToken:
@@ -1166,6 +1178,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 				return false, inHeadNoScript, noError
 			}
 		case "noframes", "style":
+			return c.genericRawTextElementParsingAlgorithm(t, inHead)
 		case "script":
 			il := c.getAppropriatePlaceForInsertion(nil)
 			elem := c.createElementForToken(t, "html", il.node)
@@ -1243,16 +1256,17 @@ func (c *HTMLTreeConstructor) defaultAfterHeadModeHandler(t *Token) (bool, inser
 	return true, inBody, noError
 }
 func (c *HTMLTreeConstructor) afterHeadModeHandler(t *Token) (bool, insertionMode, parseError) {
+	err := noError
 	switch t.TokenType {
 	case characterToken:
 		switch t.Data {
 		case "\u0009", "\u000A", "\u000C", "\u000D", "\u0020":
 			c.insertCharacter(t)
-			return false, afterHead, noError
+			return false, afterHead, err
 		}
 	case commentToken:
 		c.insertComment(t)
-		return false, afterHead, noError
+		return false, afterHead, err
 	case docTypeToken:
 		return false, afterHead, generalParseError
 	case startTagToken:
@@ -1267,11 +1281,11 @@ func (c *HTMLTreeConstructor) afterHeadModeHandler(t *Token) (bool, insertionMod
 			//c.WriteHTMLElement(t)
 			return false, inFrameset, noError
 		case "base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "template", "title":
-			//c.PushOpenElements(c.headPointer)
-			reprocess, nextmode, err := c.inHeadModeHandler(t)
-
-			//c.PopOpenElements()
-			return reprocess, nextmode, err
+			err = generalParseError
+			c.stackOfOpenElements.Push(c.headElementPointer)
+			repro, nextState, err := c.useRulesFor(t, afterHead, inHead)
+			c.stackOfOpenElements.Remove(c.stackOfOpenElements.Contains(c.headElementPointer))
+			return repro, nextState, err
 		case "head":
 			return false, afterHead, generalParseError
 		}
@@ -2236,8 +2250,9 @@ func (c *HTMLTreeConstructor) processToken(token *Token, nextMode insertionMode)
 		reprocess bool
 		parseErr  parseError
 	)
-	fmt.Printf("token: %+v\n mode: %s\n", token, c.curInsertionMode)
+	fmt.Printf("token: %+vmode: %s\n", token, c.curInsertionMode)
 	reprocess, c.curInsertionMode, parseErr = c.mappings[nextMode](token)
+	fmt.Printf("tree: \n%s\n\n", c.HTMLDocument.Node)
 	if c.config[debug] == 0 {
 		logError(parseErr)
 	}

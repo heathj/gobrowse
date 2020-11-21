@@ -2,6 +2,8 @@ package spec
 
 import (
 	"browser/parser/webidl"
+	"fmt"
+	"sort"
 )
 
 func (h *NodeList) Contains(n *Node) int {
@@ -14,12 +16,27 @@ func (h *NodeList) Contains(n *Node) int {
 }
 
 func (h *NodeList) Remove(i int) *Node {
-	if i == -1 {
+	if i < 0 {
+		return nil
+	}
+	if i >= len(*h) {
 		return nil
 	}
 	node := (*h)[i]
 	*h = append((*h)[:i], (*h)[i+1:]...)
 	return node
+}
+
+func (h *NodeList) WedgeIn(i int, n *Node) {
+	if i < 0 {
+		return
+	}
+	if i >= len(*h) {
+		*h = append(*h, n)
+		return
+	}
+	*h = append((*h)[:i+1], (*h)[i:]...)
+	(*h)[i] = n
 }
 
 func (h *NodeList) Pop() *Node {
@@ -73,12 +90,12 @@ const (
 type DocumentPosition uint16
 
 const (
-	Disconnected           DocumentPosition = 0x01
-	Preceding              DocumentPosition = 0x02
-	Following              DocumentPosition = 0x04
-	Contain                DocumentPosition = 0x08
-	ContainedBy            DocumentPosition = 0x10
-	ImplementationSpecific DocumentPosition = 0x20
+	Disconnected      DocumentPosition = 0x01
+	Preceding         DocumentPosition = 0x02
+	Following         DocumentPosition = 0x04
+	Contain           DocumentPosition = 0x08
+	ContainedBy       DocumentPosition = 0x10
+	Implementationfic DocumentPosition = 0x20
 )
 
 var ScopeMarker = &Node{
@@ -134,7 +151,7 @@ func NewDocTypeNode(name, pub, sys string) *Node {
 
 func NewDOMElement(od *Node, name, namespace webidl.DOMString, optionals ...webidl.DOMString) *Node {
 	// handle custom events? not sure how that will work since that is functionality of the HTML
-	// spec not the DOM spec. might need to create a shared package or something so I don't get
+	// not the DOM  might need to create a shared package or something so I don't get
 	// circular deps
 	var prefix webidl.DOMString
 	if len(optionals) >= 1 {
@@ -154,7 +171,7 @@ func NewDOMElement(od *Node, name, namespace webidl.DOMString, optionals ...webi
 	}
 }
 
-// https://dom.spec.whatwg.org/#node
+// https://dom.whatwg.org/#node
 type Node struct {
 	NodeType                                                        NodeType
 	NodeName                                                        webidl.DOMString
@@ -176,6 +193,78 @@ type Node struct {
 	*Document
 	*DocumentType
 	*DocumentFragment
+}
+
+func serializeNodeType(node *Node, ident int) string {
+	switch node.NodeType {
+	case ElementNode:
+		e := "<" + string(node.NodeName)
+		if node.Attributes != nil && len(node.Attributes.Attrs) != 0 {
+			e += ">"
+			keys := make([]string, 0, len(node.Attributes.Attrs))
+			for name := range node.Attributes.Attrs {
+				keys = append(keys, name)
+			}
+			sort.Strings(keys)
+			spaces := "| "
+			for i := 1; i < ident; i++ {
+				spaces += "  "
+			}
+			for _, name := range keys {
+				value := node.Attributes.Attrs[name]
+				e += "\n" + spaces + name + "=\"" + value + "\""
+			}
+		} else {
+			e += ">"
+		}
+		return e
+	case TextNode:
+		return "\"" + string(node.Text.Data) + "\""
+	case CommentNode:
+		return "<!-- " + string(node.Comment.Data) + " -->"
+	case DocumentTypeNode:
+		d := "<!DOCTYPE " + string(node.DocumentType.Name)
+		if len(node.DocumentType.PublicID) == 0 && len(node.DocumentType.SystemID) == 0 {
+			return d
+		}
+		if len(node.DocumentType.PublicID) != 0 && string(node.DocumentType.PublicID) != "MISSING" {
+			d += " \"" + string(node.DocumentType.PublicID) + "\""
+		}
+		if len(node.DocumentType.SystemID) != 0 && string(node.DocumentType.SystemID) != "MISSING" {
+			d += " \"" + string(node.DocumentType.SystemID) + "\""
+		}
+
+		d += ">"
+		return d
+	case DocumentNode:
+		return "#document"
+	case ProcessingInstructionNode:
+		return "<?" + string(node.ProcessingInstruction.CharacterData.Data) + ">"
+	default:
+		fmt.Printf("Error serializing node: %+v\n", node)
+		return ""
+	}
+
+}
+
+func (node *Node) serialize(ident int) string {
+	ser := serializeNodeType(node, ident+1) + "\n"
+	if node.NodeType != DocumentNode {
+		spaces := "| "
+		for i := 1; i < ident; i++ {
+			spaces += "  "
+		}
+		ser = spaces + ser
+	}
+	for _, child := range node.ChildNodes {
+		ser += child.serialize(ident + 1)
+	}
+
+	return ser
+}
+
+func (node *Node) String() string {
+	return node.serialize(0)
 }
 
 func (n *Node) GetRootNode(o GetRootNodeOptions) *Node {
@@ -246,7 +335,7 @@ func (n *Node) CloneNode(deep bool) *Node {
 	return copy
 }
 
-// https://dom.spec.whatwg.org/#concept-node-equals
+// https://dom.whatwg.org/#concept-node-equals
 func (n *Node) IsEqualNode(on *Node) bool {
 	// if on.(*Node).NodeType != n.NodeType {
 	// 	return false
@@ -291,7 +380,7 @@ func (n *Node) InsertBefore(on, child *Node) *Node {
 }
 
 // didn't really follow the steps here because they seem complicated :/
-// https://dom.spec.whatwg.org/#concept-node-append
+// https://dom.whatwg.org/#concept-node-append
 func (n *Node) AppendChild(on *Node) *Node {
 	if n.LastChild != nil {
 		on.PreviousSibling = n.LastChild
@@ -304,7 +393,7 @@ func (n *Node) AppendChild(on *Node) *Node {
 }
 func (n *Node) ReplaceChild(on, child *Node) *Node { return nil }
 
-// TODO: not to spec yet, for some reason remove is like 50 steps. I'll come back to it
+// TODO: not to yet, for some reason remove is like 50 steps. I'll come back to it
 func (n *Node) RemoveChild(child *Node) *Node {
 	node := n.ChildNodes.Remove(n.ChildNodes.Contains(child))
 	if n.LastChild != nil {
