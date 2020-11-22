@@ -1161,15 +1161,18 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 		case "html":
 			return c.useRulesFor(t, inHead, inBody)
 		case "base", "basefont", "bgsound", "link":
-			/*c.WriteHTMLElement(t)
-			c.PopOpenElements()*/
+			c.insertHTMLElementForToken(t)
+			c.stackOfOpenElements.Pop()
+			return false, inHead, noError
 			//TODO: acknowledge the self closing flag?
 		case "meta":
-			/*c.WriteHTMLElement(t)
-			c.PopOpenElements()*/
+			c.insertHTMLElementForToken(t)
+			c.stackOfOpenElements.Pop()
 			//TODO: acknowledge the self closing flag?
+			//TODO: char encoding settings
+			return false, inHead, noError
 		case "title":
-			return c.genericRCDATAElementParsingAlgorithm(t, inHead)
+			return c.genericRCDATAElementParsingAlgorithm(t, c.curInsertionMode)
 		case "noscript":
 			if c.scriptingEnabled {
 
@@ -1178,7 +1181,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 				return false, inHeadNoScript, noError
 			}
 		case "noframes", "style":
-			return c.genericRawTextElementParsingAlgorithm(t, inHead)
+			return c.genericRawTextElementParsingAlgorithm(t, c.curInsertionMode)
 		case "script":
 			il := c.getAppropriatePlaceForInsertion(nil)
 			elem := c.createElementForToken(t, "html", il.node)
@@ -1187,7 +1190,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			il.insert(elem)
 			c.stackOfOpenElements.Push(elem)
 			c.stateChannel <- scriptDataState
-			c.originalInsertionMode = inHead
+			c.originalInsertionMode = c.curInsertionMode
 			return false, text, noError
 		case "template":
 		case "head":
@@ -1417,6 +1420,19 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			"template", "title":
 			return c.useRulesFor(t, inBody, inHead)
 		case "body":
+			err = generalParseError
+			if len(c.stackOfOpenElements) <= 1 ||
+				c.stackOfOpenElements[1].NodeName != "body" ||
+				len(c.containedInStackOpenElements("template")) != 0 {
+				return false, inBody, err
+			}
+
+			c.frameset = framesetNotOK
+			for k, v := range t.Attributes {
+				if _, ok := c.stackOfOpenElements[1].Attributes.Attrs[k]; !ok {
+					c.stackOfOpenElements[1].Attributes.Attrs[k] = v
+				}
+			}
 		case "frameset":
 		case "address", "article", "aside", "blockquote", "center", "details", "dialog", "dir",
 			"div", "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "main",
@@ -1521,6 +1537,14 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			elem := c.insertHTMLElementForToken(t)
 			c.activeFormattingElements.Push(elem)
 		case "nobr":
+			c.reconstructActiveFormattingElements()
+			if c.stackContainsInScope("nobr", c.elementInScope) {
+				err = generalParseError
+				c.adoptionAgencyAlgorithm(t)
+				c.reconstructActiveFormattingElements()
+			}
+			elem := c.insertHTMLElementForToken(t)
+			c.activeFormattingElements.Push(elem)
 		case "applet", "marquee", "object":
 			c.reconstructActiveFormattingElements()
 			c.insertHTMLElementForToken(t)
@@ -1550,7 +1574,17 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			// ack self closing flag
 			c.frameset = framesetNotOK
 		case "image":
+			t.TagName = "img"
+			return true, inBody, generalParseError
 		case "textarea":
+			c.insertHTMLElementForToken(t)
+			// TODO: If the next token is a U+000A LINE FEED (LF) character token, then ignore that
+			// token and move on to the next one. (Newlines at the start of textarea elements are
+			// ignored as an authoring convenience.)
+			c.stateChannel <- rcDataState
+			c.originalInsertionMode = c.curInsertionMode
+			c.frameset = framesetNotOK
+			return false, text, noError
 		case "xmp":
 		case "iframe":
 		case "noembed":
@@ -1631,6 +1665,16 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 				err = c.defaultInBodyModeHandler(t)
 			}
 		case "applet", "marquee", "object":
+			if !c.stackContainsInScope(t.TagName, c.elementInScope) {
+				return false, inBody, generalParseError
+			}
+
+			c.generateImpliedEndTags([]webidl.DOMString{})
+			if c.getCurrentNode().NodeName == webidl.DOMString(t.TagName) {
+				err = generalParseError
+			}
+			c.stackOfOpenElements.PopUntil(webidl.DOMString(t.TagName))
+			c.clearListOfActiveFormattingElementsToLastMarker()
 		case "br":
 		default:
 			err = c.defaultInBodyModeHandler(t)
