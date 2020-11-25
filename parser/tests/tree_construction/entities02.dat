@@ -1,5 +1,5 @@
 #data
-<div bar="ZZgt;YY"></div>
+<div bar="ZZ&gt;YY"></div>
 #errors
 (1,20): expected-doctype-but-got-start-tag
 #document
@@ -10,7 +10,7 @@
 |       bar="ZZ>YY"
 
 #data
-<div bar="ZZ"></div>
+<div bar="ZZ&"></div>
 #errors
 (1,15): expected-doctype-but-got-start-tag
 #document
@@ -18,10 +18,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZ"
+|       bar="ZZ&"
 
 #data
-<div bar='ZZ'></div>
+<div bar='ZZ&'></div>
 #errors
 (1,15): expected-doctype-but-got-start-tag
 #document
@@ -29,10 +29,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZ"
+|       bar="ZZ&"
 
 #data
-<div bar=ZZ></div>
+<div bar=ZZ&></div>
 #errors
 (1,13): expected-doctype-but-got-start-tag
 #document
@@ -40,10 +40,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZ"
+|       bar="ZZ&"
 
 #data
-<div bar="ZZgt=YY"></div>
+<div bar="ZZ&gt=YY"></div>
 #errors
 (1,15): named-entity-without-semicolon
 (1,20): expected-doctype-but-got-start-tag
@@ -52,10 +52,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZgt=YY"
+|       bar="ZZ&gt=YY"
 
 #data
-<div bar="ZZgt0YY"></div>
+<div bar="ZZ&gt0YY"></div>
 #errors
 (1,20): expected-doctype-but-got-start-tag
 #document
@@ -63,10 +63,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZgt0YY"
+|       bar="ZZ&gt0YY"
 
 #data
-<div bar="ZZgt9YY"></div>
+<div bar="ZZ&gt9YY"></div>
 #errors
 (1,20): expected-doctype-but-got-start-tag
 #document
@@ -74,10 +74,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZgt9YY"
+|       bar="ZZ&gt9YY"
 
 #data
-<div bar="ZZgtaYY"></div>
+<div bar="ZZ&gtaYY"></div>
 #errors
 (1,20): expected-doctype-but-got-start-tag
 #document
@@ -85,10 +85,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZgtaYY"
+|       bar="ZZ&gtaYY"
 
 #data
-<div bar="ZZgtZYY"></div>
+<div bar="ZZ&gtZYY"></div>
 #errors
 (1,20): expected-doctype-but-got-start-tag
 #document
@@ -96,15 +96,13 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZgtZYY"
+|       bar="ZZ&gtZYY"
 
 #data
-<div bar="ZZgt YY"></div>
+<div bar="ZZ&gt YY"></div>
 #errors
 (1,15): named-entity-without-semicolon
 (1,20): expected-doctype-but-got-start-tag
-#new-errors
-(1:16) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -113,12 +111,10 @@
 |       bar="ZZ> YY"
 
 #data
-<div bar="ZZgt"></div>
+<div bar="ZZ&gt"></div>
 #errors
 (1,15): named-entity-without-semicolon
 (1,17): expected-doctype-but-got-start-tag
-#new-errors
-(1:16) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -127,12 +123,10 @@
 |       bar="ZZ>"
 
 #data
-<div bar='ZZgt'></div>
+<div bar='ZZ&gt'></div>
 #errors
 (1,15): named-entity-without-semicolon
 (1,17): expected-doctype-but-got-start-tag
-#new-errors
-(1:16) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -141,12 +135,10 @@
 |       bar="ZZ>"
 
 #data
-<div bar=ZZgt></div>
+<div bar=ZZ&gt></div>
 #errors
 (1,14): named-entity-without-semicolon
 (1,15): expected-doctype-but-got-start-tag
-#new-errors
-(1:15) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -155,12 +147,10 @@
 |       bar="ZZ>"
 
 #data
-<div bar="ZZpound_id=23"></div>
+<div bar="ZZ&pound_id=23"></div>
 #errors
 (1,18): named-entity-without-semicolon
 (1,26): expected-doctype-but-got-start-tag
-#new-errors
-(1:19) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -169,7 +159,7 @@
 |       bar="ZZ£_id=23"
 
 #data
-<div bar="ZZprod_id=23"></div>
+<div bar="ZZ&prod_id=23"></div>
 #errors
 (1,25): expected-doctype-but-got-start-tag
 #document
@@ -177,10 +167,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZprod_id=23"
+|       bar="ZZ&prod_id=23"
 
 #data
-<div bar="ZZpound;_id=23"></div>
+<div bar="ZZ&pound;_id=23"></div>
 #errors
 (1,27): expected-doctype-but-got-start-tag
 #document
@@ -191,7 +181,7 @@
 |       bar="ZZ£_id=23"
 
 #data
-<div bar="ZZprod;_id=23"></div>
+<div bar="ZZ&prod;_id=23"></div>
 #errors
 (1,26): expected-doctype-but-got-start-tag
 #document
@@ -202,7 +192,7 @@
 |       bar="ZZ∏_id=23"
 
 #data
-<div bar="ZZpound=23"></div>
+<div bar="ZZ&pound=23"></div>
 #errors
 (1,18): named-entity-without-semicolon
 (1,23): expected-doctype-but-got-start-tag
@@ -211,10 +201,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZpound=23"
+|       bar="ZZ&pound=23"
 
 #data
-<div bar="ZZprod=23"></div>
+<div bar="ZZ&prod=23"></div>
 #errors
 (1,22): expected-doctype-but-got-start-tag
 #document
@@ -222,15 +212,13 @@
 |   <head>
 |   <body>
 |     <div>
-|       bar="ZZprod=23"
+|       bar="ZZ&prod=23"
 
 #data
-<div>ZZpound_id=23</div>
+<div>ZZ&pound_id=23</div>
 #errors
 (1,5): expected-doctype-but-got-start-tag
 (1,13): named-entity-without-semicolon
-#new-errors
-(1:14) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -239,7 +227,7 @@
 |       "ZZ£_id=23"
 
 #data
-<div>ZZprod_id=23</div>
+<div>ZZ&prod_id=23</div>
 #errors
 (1,5): expected-doctype-but-got-start-tag
 #document
@@ -247,10 +235,10 @@
 |   <head>
 |   <body>
 |     <div>
-|       "ZZprod_id=23"
+|       "ZZ&prod_id=23"
 
 #data
-<div>ZZpound;_id=23</div>
+<div>ZZ&pound;_id=23</div>
 #errors
 (1,5): expected-doctype-but-got-start-tag
 #document
@@ -261,7 +249,7 @@
 |       "ZZ£_id=23"
 
 #data
-<div>ZZprod;_id=23</div>
+<div>ZZ&prod;_id=23</div>
 #errors
 (1,5): expected-doctype-but-got-start-tag
 #document
@@ -272,12 +260,10 @@
 |       "ZZ∏_id=23"
 
 #data
-<div>ZZpound=23</div>
+<div>ZZ&pound=23</div>
 #errors
 (1,5): expected-doctype-but-got-start-tag
 (1,13): named-entity-without-semicolon
-#new-errors
-(1:14) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -286,7 +272,7 @@
 |       "ZZ£=23"
 
 #data
-<div>ZZprod=23</div>
+<div>ZZ&prod=23</div>
 #errors
 (1,5): expected-doctype-but-got-start-tag
 #document
@@ -294,13 +280,11 @@
 |   <head>
 |   <body>
 |     <div>
-|       "ZZprod=23"
+|       "ZZ&prod=23"
 
 #data
-<div>ZZAElig=</div>
+<div>ZZ&AElig=</div>
 #errors
-#new-errors
-(1:14) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>

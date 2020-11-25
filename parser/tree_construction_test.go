@@ -11,8 +11,31 @@ type treeTest struct {
 	expected string
 }
 
+func getExpected(splits []string) string {
+	ret := ""
+	for i := range splits {
+		switch splits[i] {
+		case "#errors":
+		case "#document":
+			ret = "#document\n"
+			for j := i + 1; j < len(splits); j++ {
+				if len(splits[j]) == 0 {
+					continue
+				}
+				if len(splits[j]) == 0 {
+					continue
+				}
+
+				ret += splits[j] + "\n"
+			}
+			return ret
+		}
+	}
+	return ret
+}
+
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/tests1.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -26,25 +49,16 @@ func parseTests(t *testing.T) []treeTest {
 		}
 		t := treeTest{}
 		splits := strings.Split(test, "\n")
-		t.in = splits[0]
-		for i := range splits {
-			switch splits[i] {
-			case "#errors":
-			case "#document":
-				t.expected = "#document\n"
-				for j := i + 1; j < len(splits); j++ {
-					if len(splits[j]) == 0 {
-						continue
-					}
-					if splits[j][0] != '|' {
-						continue
-					}
-
-					t.expected += splits[j] + "\n"
-				}
+		for i := 0; i < len(splits); i++ {
+			if splits[i] == "#document" || splits[i] == "#errors" {
+				break
 			}
+			t.in += splits[i] + "\n"
 		}
-
+		if len(t.in) > 0 {
+			t.in = t.in[:len(t.in)-1]
+		}
+		t.expected = getExpected(splits)
 		treeTests = append(treeTests, t)
 	}
 

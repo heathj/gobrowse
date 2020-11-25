@@ -1,18 +1,80 @@
 #data
-<!DOCTYPE html><li>hello<li>world<ul>how<li>do</ul>you</body><!--do-->
+ 
+ 
+#errors
+(2,1): expected-doctype-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html>  <html>
 #errors
 #document
 | <!DOCTYPE html>
 | <html>
 |   <head>
 |   <body>
-|     <li>
-|       "hello"
-|     <li>
-|       "world"
-|       <ul>
-|         "how"
-|         <li>
-|           "do"
-|       "you"
-|   <!-- do -->
+
+#data
+<!DOCTYPE html><script>
+</script>  <title>x</title>  </head>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "
+"
+|     "  "
+|     <title>
+|       "x"
+|     "  "
+|   <body>
+
+#data
+<!DOCTYPE html><html><body><html id=x>
+#errors
+(1,38): non-html-root
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html>X</body><html id="x">
+#errors
+(1,36): non-html-root
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+|     "X"
+
+#data
+<!DOCTYPE html><head><html id=x>
+#errors
+(1,32): non-html-root
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html>X</html>X
+#errors
+(1,24): expected-eof-but-got-char
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "XX"

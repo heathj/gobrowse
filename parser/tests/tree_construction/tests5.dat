@@ -151,25 +151,25 @@
 |       " <!-- > --> "
 
 #data
-<title>amp;</title>
+<title>&amp;</title>
 #errors
 (1,7): expected-doctype-but-got-start-tag
 #document
 | <html>
 |   <head>
 |     <title>
-|       ""
+|       "&"
 |   <body>
 
 #data
-<title><!--amp;--></title>
+<title><!--&amp;--></title>
 #errors
 (1,7): expected-doctype-but-got-start-tag
 #document
 | <html>
 |   <head>
 |     <title>
-|       "<!---->"
+|       "<!--&-->"
 |   <body>
 
 #data

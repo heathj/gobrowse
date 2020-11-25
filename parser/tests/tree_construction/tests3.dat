@@ -145,7 +145,7 @@ y</pre></body></html>
 y"
 
 #data
-<!DOCTYPE html><pre>#x0a;#x0a;A</pre>
+<!DOCTYPE html><pre>&#x0a;&#x0a;A</pre>
 #errors
 #document
 | <!DOCTYPE html>

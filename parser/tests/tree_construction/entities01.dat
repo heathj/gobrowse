@@ -1,5 +1,5 @@
 #data
-FOOgt;BAR
+FOO&gt;BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -9,12 +9,10 @@ FOOgt;BAR
 |     "FOO>BAR"
 
 #data
-FOOgtBAR
+FOO&gtBAR
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,6): named-entity-without-semicolon
-#new-errors
-(1:7) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -22,12 +20,10 @@ FOOgtBAR
 |     "FOO>BAR"
 
 #data
-FOOgt BAR
+FOO&gt BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,6): named-entity-without-semicolon
-#new-errors
-(1:7) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -35,7 +31,7 @@ FOOgt BAR
 |     "FOO> BAR"
 
 #data
-FOOgt;;;BAR
+FOO&gt;;;BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -45,12 +41,10 @@ FOOgt;;;BAR
 |     "FOO>;;BAR"
 
 #data
-I'm notit; I tell you
+I'm &notit; I tell you
 #errors
 (1,4): expected-doctype-but-got-chars
 (1,9): named-entity-without-semicolon
-#new-errors
-(1:9) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -58,7 +52,7 @@ I'm notit; I tell you
 |     "I'm ¬it; I tell you"
 
 #data
-I'm notin; I tell you
+I'm &notin; I tell you
 #errors
 (1,4): expected-doctype-but-got-chars
 #document
@@ -68,43 +62,17 @@ I'm notin; I tell you
 |     "I'm ∉ I tell you"
 
 #data
-ammmp;
-#errors
-(1,1): expected-doctype-but-got-chars
-(1,7): unknown-named-character-reference
-#new-errors
-(1:7) unknown-named-character-reference
-#document
-| <html>
-|   <head>
-|   <body>
-|     "ammmp;"
-
-#data
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmp;
-#errors
-(1,1): expected-doctype-but-got-chars
-(1,950): unknown-named-character-reference
-#new-errors
-(1:950) unknown-named-character-reference
-#document
-| <html>
-|   <head>
-|   <body>
-|     "ammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmp;"
-
-#data
-FOO BAR
+FOO& BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
 | <html>
 |   <head>
 |   <body>
-|     "FOO BAR"
+|     "FOO& BAR"
 
 #data
-FOO<BAR>
+FOO&<BAR>
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,9): expected-closing-tag-but-got-eof
@@ -112,21 +80,21 @@ FOO<BAR>
 | <html>
 |   <head>
 |   <body>
-|     "FOO"
+|     "FOO&"
 |     <bar>
 
 #data
-FOOgt;BAR
+FOO&&&&gt;BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
 | <html>
 |   <head>
 |   <body>
-|     "FOO>BAR"
+|     "FOO&&&>BAR"
 
 #data
-FOO#41;BAR
+FOO&#41;BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -136,7 +104,7 @@ FOO#41;BAR
 |     "FOO)BAR"
 
 #data
-FOO#x41;BAR
+FOO&#x41;BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -146,7 +114,7 @@ FOO#x41;BAR
 |     "FOOABAR"
 
 #data
-FOO#X41;BAR
+FOO&#X41;BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -156,38 +124,32 @@ FOO#X41;BAR
 |     "FOOABAR"
 
 #data
-FOO#BAR
+FOO&#BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,5): expected-numeric-entity
-#new-errors
-(1:6) absence-of-digits-in-numeric-character-reference
 #document
 | <html>
 |   <head>
 |   <body>
-|     "FOO#BAR"
+|     "FOO&#BAR"
 
 #data
-FOO#ZOO
+FOO&#ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,5): expected-numeric-entity
-#new-errors
-(1:6) absence-of-digits-in-numeric-character-reference
 #document
 | <html>
 |   <head>
 |   <body>
-|     "FOO#ZOO"
+|     "FOO&#ZOO"
 
 #data
-FOO#xBAR
+FOO&#xBAR
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,7): expected-numeric-entity
-#new-errors
-(1:9) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -195,38 +157,32 @@ FOO#xBAR
 |     "FOOºR"
 
 #data
-FOO#xZOO
+FOO&#xZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,6): expected-numeric-entity
-#new-errors
-(1:7) absence-of-digits-in-numeric-character-reference
 #document
 | <html>
 |   <head>
 |   <body>
-|     "FOO#xZOO"
+|     "FOO&#xZOO"
 
 #data
-FOO#XZOO
+FOO&#XZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,6): expected-numeric-entity
-#new-errors
-(1:7) absence-of-digits-in-numeric-character-reference
 #document
 | <html>
 |   <head>
 |   <body>
-|     "FOO#XZOO"
+|     "FOO&#XZOO"
 
 #data
-FOO#41BAR
+FOO&#41BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,7): numeric-entity-without-semicolon
-#new-errors
-(1:8) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -234,12 +190,10 @@ FOO#41BAR
 |     "FOO)BAR"
 
 #data
-FOO#x41BAR
+FOO&#x41BAR
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,10): numeric-entity-without-semicolon
-#new-errors
-(1:11) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -247,12 +201,10 @@ FOO#x41BAR
 |     "FOO䆺R"
 
 #data
-FOO#x41ZOO
+FOO&#x41ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,8): numeric-entity-without-semicolon
-#new-errors
-(1:9) missing-semicolon-after-character-reference
 #document
 | <html>
 |   <head>
@@ -260,12 +212,10 @@ FOO#x41ZOO
 |     "FOOAZOO"
 
 #data
-FOO#x0000;ZOO
+FOO&#x0000;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) null-character-reference
 #document
 | <html>
 |   <head>
@@ -273,7 +223,7 @@ FOO#x0000;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#x0078;ZOO
+FOO&#x0078;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -283,7 +233,7 @@ FOO#x0078;ZOO
 |     "FOOxZOO"
 
 #data
-FOO#x0079;ZOO
+FOO&#x0079;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -293,12 +243,10 @@ FOO#x0079;ZOO
 |     "FOOyZOO"
 
 #data
-FOO#x0080;ZOO
+FOO&#x0080;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -306,12 +254,10 @@ FOO#x0080;ZOO
 |     "FOO€ZOO"
 
 #data
-FOO#x0081;ZOO
+FOO&#x0081;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -319,12 +265,10 @@ FOO#x0081;ZOO
 |     "FOOZOO"
 
 #data
-FOO#x0082;ZOO
+FOO&#x0082;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -332,12 +276,10 @@ FOO#x0082;ZOO
 |     "FOO‚ZOO"
 
 #data
-FOO#x0083;ZOO
+FOO&#x0083;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -345,12 +287,10 @@ FOO#x0083;ZOO
 |     "FOOƒZOO"
 
 #data
-FOO#x0084;ZOO
+FOO&#x0084;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -358,12 +298,10 @@ FOO#x0084;ZOO
 |     "FOO„ZOO"
 
 #data
-FOO#x0085;ZOO
+FOO&#x0085;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -371,12 +309,10 @@ FOO#x0085;ZOO
 |     "FOO…ZOO"
 
 #data
-FOO#x0086;ZOO
+FOO&#x0086;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -384,12 +320,10 @@ FOO#x0086;ZOO
 |     "FOO†ZOO"
 
 #data
-FOO#x0087;ZOO
+FOO&#x0087;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -397,12 +331,10 @@ FOO#x0087;ZOO
 |     "FOO‡ZOO"
 
 #data
-FOO#x0088;ZOO
+FOO&#x0088;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -410,12 +342,10 @@ FOO#x0088;ZOO
 |     "FOOˆZOO"
 
 #data
-FOO#x0089;ZOO
+FOO&#x0089;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -423,12 +353,10 @@ FOO#x0089;ZOO
 |     "FOO‰ZOO"
 
 #data
-FOO#x008A;ZOO
+FOO&#x008A;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -436,12 +364,10 @@ FOO#x008A;ZOO
 |     "FOOŠZOO"
 
 #data
-FOO#x008B;ZOO
+FOO&#x008B;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -449,12 +375,10 @@ FOO#x008B;ZOO
 |     "FOO‹ZOO"
 
 #data
-FOO#x008C;ZOO
+FOO&#x008C;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -462,12 +386,10 @@ FOO#x008C;ZOO
 |     "FOOŒZOO"
 
 #data
-FOO#x008D;ZOO
+FOO&#x008D;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -475,12 +397,10 @@ FOO#x008D;ZOO
 |     "FOOZOO"
 
 #data
-FOO#x008E;ZOO
+FOO&#x008E;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -488,12 +408,10 @@ FOO#x008E;ZOO
 |     "FOOŽZOO"
 
 #data
-FOO#x008F;ZOO
+FOO&#x008F;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -501,12 +419,10 @@ FOO#x008F;ZOO
 |     "FOOZOO"
 
 #data
-FOO#x0090;ZOO
+FOO&#x0090;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -514,12 +430,10 @@ FOO#x0090;ZOO
 |     "FOOZOO"
 
 #data
-FOO#x0091;ZOO
+FOO&#x0091;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -527,12 +441,10 @@ FOO#x0091;ZOO
 |     "FOO‘ZOO"
 
 #data
-FOO#x0092;ZOO
+FOO&#x0092;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -540,12 +452,10 @@ FOO#x0092;ZOO
 |     "FOO’ZOO"
 
 #data
-FOO#x0093;ZOO
+FOO&#x0093;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -553,12 +463,10 @@ FOO#x0093;ZOO
 |     "FOO“ZOO"
 
 #data
-FOO#x0094;ZOO
+FOO&#x0094;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -566,12 +474,10 @@ FOO#x0094;ZOO
 |     "FOO”ZOO"
 
 #data
-FOO#x0095;ZOO
+FOO&#x0095;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -579,12 +485,10 @@ FOO#x0095;ZOO
 |     "FOO•ZOO"
 
 #data
-FOO#x0096;ZOO
+FOO&#x0096;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -592,12 +496,10 @@ FOO#x0096;ZOO
 |     "FOO–ZOO"
 
 #data
-FOO#x0097;ZOO
+FOO&#x0097;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -605,12 +507,10 @@ FOO#x0097;ZOO
 |     "FOO—ZOO"
 
 #data
-FOO#x0098;ZOO
+FOO&#x0098;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -618,12 +518,10 @@ FOO#x0098;ZOO
 |     "FOO˜ZOO"
 
 #data
-FOO#x0099;ZOO
+FOO&#x0099;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -631,12 +529,10 @@ FOO#x0099;ZOO
 |     "FOO™ZOO"
 
 #data
-FOO#x009A;ZOO
+FOO&#x009A;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -644,12 +540,10 @@ FOO#x009A;ZOO
 |     "FOOšZOO"
 
 #data
-FOO#x009B;ZOO
+FOO&#x009B;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -657,12 +551,10 @@ FOO#x009B;ZOO
 |     "FOO›ZOO"
 
 #data
-FOO#x009C;ZOO
+FOO&#x009C;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -670,12 +562,10 @@ FOO#x009C;ZOO
 |     "FOOœZOO"
 
 #data
-FOO#x009D;ZOO
+FOO&#x009D;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -683,12 +573,10 @@ FOO#x009D;ZOO
 |     "FOOZOO"
 
 #data
-FOO#x009E;ZOO
+FOO&#x009E;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -696,12 +584,10 @@ FOO#x009E;ZOO
 |     "FOOžZOO"
 
 #data
-FOO#x009F;ZOO
+FOO&#x009F;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) control-character-reference
 #document
 | <html>
 |   <head>
@@ -709,7 +595,7 @@ FOO#x009F;ZOO
 |     "FOOŸZOO"
 
 #data
-FOO#x00A0;ZOO
+FOO&#x00A0;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -719,7 +605,7 @@ FOO#x00A0;ZOO
 |     "FOO ZOO"
 
 #data
-FOO#xD7FF;ZOO
+FOO&#xD7FF;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -729,12 +615,10 @@ FOO#xD7FF;ZOO
 |     "FOO퟿ZOO"
 
 #data
-FOO#xD800;ZOO
+FOO&#xD800;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) surrogate-character-reference
 #document
 | <html>
 |   <head>
@@ -742,12 +626,10 @@ FOO#xD800;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#xD801;ZOO
+FOO&#xD801;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) surrogate-character-reference
 #document
 | <html>
 |   <head>
@@ -755,12 +637,10 @@ FOO#xD801;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#xDFFE;ZOO
+FOO&#xDFFE;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) surrogate-character-reference
 #document
 | <html>
 |   <head>
@@ -768,12 +648,10 @@ FOO#xDFFE;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#xDFFF;ZOO
+FOO&#xDFFF;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,11): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:12) surrogate-character-reference
 #document
 | <html>
 |   <head>
@@ -781,7 +659,7 @@ FOO#xDFFF;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#xE000;ZOO
+FOO&#xE000;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -791,12 +669,10 @@ FOO#xE000;ZOO
 |     "FOOZOO"
 
 #data
-FOO#x10FFFE;ZOO
+FOO&#x10FFFE;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:14) noncharacter-character-reference
 #document
 | <html>
 |   <head>
@@ -804,7 +680,7 @@ FOO#x10FFFE;ZOO
 |     "FOO􏿾ZOO"
 
 #data
-FOO#x1087D4;ZOO
+FOO&#x1087D4;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 #document
@@ -814,12 +690,10 @@ FOO#x1087D4;ZOO
 |     "FOO􈟔ZOO"
 
 #data
-FOO#x10FFFF;ZOO
+FOO&#x10FFFF;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:14) noncharacter-character-reference
 #document
 | <html>
 |   <head>
@@ -827,12 +701,10 @@ FOO#x10FFFF;ZOO
 |     "FOO􏿿ZOO"
 
 #data
-FOO#x110000;ZOO
+FOO&#x110000;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:14) character-reference-outside-unicode-range
 #document
 | <html>
 |   <head>
@@ -840,12 +712,10 @@ FOO#x110000;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#xFFFFFF;ZOO
+FOO&#xFFFFFF;ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:14) character-reference-outside-unicode-range
 #document
 | <html>
 |   <head>
@@ -853,14 +723,11 @@ FOO#xFFFFFF;ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#11111111111
+FOO&#11111111111
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
 (1,13): eof-in-numeric-entity
-#new-errors
-(1:17) missing-semicolon-after-character-reference
-(1:17) character-reference-outside-unicode-range
 #document
 | <html>
 |   <head>
@@ -868,14 +735,11 @@ FOO#11111111111
 |     "FOO�"
 
 #data
-FOO#1111111111
+FOO&#1111111111
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
 (1,13): eof-in-numeric-entity
-#new-errors
-(1:16) missing-semicolon-after-character-reference
-(1:16) character-reference-outside-unicode-range
 #document
 | <html>
 |   <head>
@@ -883,14 +747,11 @@ FOO#1111111111
 |     "FOO�"
 
 #data
-FOO#111111111111
+FOO&#111111111111
 #errors
 (1,3): expected-doctype-but-got-chars
 (1,13): illegal-codepoint-for-numeric-entity
 (1,13): eof-in-numeric-entity
-#new-errors
-(1:18) missing-semicolon-after-character-reference
-(1:18) character-reference-outside-unicode-range
 #document
 | <html>
 |   <head>
@@ -898,14 +759,10 @@ FOO#111111111111
 |     "FOO�"
 
 #data
-FOO#11111111111ZOO
+FOO&#11111111111ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
-(1,16): numeric-entity-without-semicolon
-(1,16): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:17) missing-semicolon-after-character-reference
-(1:17) character-reference-outside-unicode-range
+(1,13): illegal-codepoint-for-numeric-entity
 #document
 | <html>
 |   <head>
@@ -913,14 +770,10 @@ FOO#11111111111ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#1111111111ZOO
+FOO&#1111111111ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
-(1,15): numeric-entity-without-semicolon
-(1,15): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:16) missing-semicolon-after-character-reference
-(1:16) character-reference-outside-unicode-range
+(1,13): illegal-codepoint-for-numeric-entity
 #document
 | <html>
 |   <head>
@@ -928,14 +781,10 @@ FOO#1111111111ZOO
 |     "FOO�ZOO"
 
 #data
-FOO#111111111111ZOO
+FOO&#111111111111ZOO
 #errors
 (1,3): expected-doctype-but-got-chars
-(1,17): numeric-entity-without-semicolon
-(1,17): illegal-codepoint-for-numeric-entity
-#new-errors
-(1:18) missing-semicolon-after-character-reference
-(1:18) character-reference-outside-unicode-range
+(1,13): illegal-codepoint-for-numeric-entity
 #document
 | <html>
 |   <head>

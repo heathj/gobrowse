@@ -2292,11 +2292,9 @@ func (p *HTMLTokenizer) tokenizeUntilEOF(nextState tokenizerState) tokenizerStat
 	)
 	for {
 		r, _, err = p.htmlReader.ReadRune()
-		if err != nil {
-			if err == io.EOF {
-				p.eof = true
-				break
-			}
+		if err != nil && err == io.EOF {
+			p.eof = true
+			break
 		}
 
 		r = p.normalizeNewlines(r)
