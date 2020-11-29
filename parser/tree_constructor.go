@@ -1454,6 +1454,17 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		return false, inBody, generalParseError
 	case startTagToken:
 		switch t.TagName {
+		case "html":
+			if len(c.containedInStackOpenElements("template")) > 0 {
+				return false, inBody, generalParseError
+			}
+
+			for k, v := range t.Attributes {
+				if _, ok := c.stackOfOpenElements[0].Attributes.Attrs[k]; !ok {
+					c.stackOfOpenElements[0].Attributes.Attrs[k] = v
+				}
+			}
+			return false, inBody, generalParseError
 		case "base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style",
 			"template", "title":
 			return c.useRulesFor(t, inHead)
@@ -1752,6 +1763,30 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			}
 			c.stackOfOpenElements.PopUntil(webidl.DOMString(t.TagName))
 		case "form":
+			if len(c.containedInStackOpenElements("template")) == 0 {
+				node := c.formElementPointer
+				c.formElementPointer = nil
+				if node == nil ||
+					!c.stackContainsInScope(string(node.NodeName), c.elementInScope) {
+					return false, inBody, generalParseError
+				}
+				c.generateImpliedEndTags([]webidl.DOMString{})
+				if c.getCurrentNode().NodeName != node.NodeName {
+					err = generalParseError
+				}
+				c.stackOfOpenElements.Remove(c.stackOfOpenElements.Contains(node))
+				return false, inBody, err
+			}
+
+			if !c.stackContainsInScope("form", c.elementInScope) {
+				return false, inBody, generalParseError
+			}
+			c.generateImpliedEndTags([]webidl.DOMString{})
+			if c.getCurrentNode().NodeName != "form" {
+				err = generalParseError
+			}
+			c.stackOfOpenElements.PopUntil("form")
+			return false, inBody, err
 		case "p":
 			if !c.stackContainsInScope("p", c.elementInButtonScope) {
 				err = generalParseError

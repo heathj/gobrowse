@@ -2696,3 +2696,176 @@ x { content:"</style" } "
 |     <select>
 |       <optgroup>
 
+#data
+ 
+ 
+#errors
+(2,1): expected-doctype-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html>  <html>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html><script>
+</script>  <title>x</title>  </head>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "
+"
+|     "  "
+|     <title>
+|       "x"
+|     "  "
+|   <body>
+
+#data
+<!DOCTYPE html><html><body><html id=x>
+#errors
+(1,38): non-html-root
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html>X</body><html id="x">
+#errors
+(1,36): non-html-root
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+|     "X"
+
+#data
+<!DOCTYPE html><head><html id=x>
+#errors
+(1,32): non-html-root
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html>X</html>X
+#errors
+(1,24): expected-eof-but-got-char
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "XX"
+
+#data
+<!DOCTYPE html>X</html> 
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "X "
+
+#data
+<!DOCTYPE html>X</html><p>X
+#errors
+(1,26): expected-eof-but-got-start-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "X"
+|     <p>
+|       "X"
+
+#data
+<!DOCTYPE html>X<p/x/y/z>
+#errors
+(1,19): unexpected-character-after-solidus-in-tag
+(1,21): unexpected-character-after-solidus-in-tag
+(1,23): unexpected-character-after-solidus-in-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "X"
+|     <p>
+|       x=""
+|       y=""
+|       z=""
+
+#data
+<!DOCTYPE html><!--x--
+#errors
+(1,22): eof-in-comment-double-dash
+#document
+| <!DOCTYPE html>
+| <!-- x -->
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html><table><tr><td></p></table>
+#errors
+(1,34): unexpected-end-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <p>
+
+#data
+<!DOCTYPE <!DOCTYPE HTML>><!--<!--x-->-->
+#errors
+(1,20): expected-space-or-right-bracket-in-doctype
+(1,25): unknown-doctype
+(1,35): unexpected-char-in-comment
+#document
+| <!DOCTYPE <!doctype>
+| <html>
+|   <head>
+|   <body>
+|     ">"
+|     <!-- <!--x -->
+|     "-->"
+
+#data
+<!doctype html><div><form></form><div></div></div>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <form>
+|       <div>
