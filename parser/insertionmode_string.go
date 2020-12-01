@@ -15,28 +15,29 @@ func _() {
 	_ = x[inHeadNoScript-4]
 	_ = x[afterHead-5]
 	_ = x[inBody-6]
-	_ = x[text-7]
-	_ = x[inTable-8]
-	_ = x[inTableText-9]
-	_ = x[inCaption-10]
-	_ = x[inColumnGroup-11]
-	_ = x[inTableBody-12]
-	_ = x[inRow-13]
-	_ = x[inCell-14]
-	_ = x[inSelect-15]
-	_ = x[inSelectInTable-16]
-	_ = x[inTemplate-17]
-	_ = x[afterBody-18]
-	_ = x[inFrameset-19]
-	_ = x[afterFrameset-20]
-	_ = x[afterAfterBody-21]
-	_ = x[afterAfterFrameset-22]
-	_ = x[stopParser-23]
+	_ = x[inBodyPeekNextToken-7]
+	_ = x[text-8]
+	_ = x[inTable-9]
+	_ = x[inTableText-10]
+	_ = x[inCaption-11]
+	_ = x[inColumnGroup-12]
+	_ = x[inTableBody-13]
+	_ = x[inRow-14]
+	_ = x[inCell-15]
+	_ = x[inSelect-16]
+	_ = x[inSelectInTable-17]
+	_ = x[inTemplate-18]
+	_ = x[afterBody-19]
+	_ = x[inFrameset-20]
+	_ = x[afterFrameset-21]
+	_ = x[afterAfterBody-22]
+	_ = x[afterAfterFrameset-23]
+	_ = x[stopParser-24]
 }
 
-const _insertionMode_name = "initialbeforeHTMLbeforeHeadinHeadinHeadNoScriptafterHeadinBodytextinTableinTableTextinCaptioninColumnGroupinTableBodyinRowinCellinSelectinSelectInTableinTemplateafterBodyinFramesetafterFramesetafterAfterBodyafterAfterFramesetstopParser"
+const _insertionMode_name = "initialbeforeHTMLbeforeHeadinHeadinHeadNoScriptafterHeadinBodyinBodyPeekNextTokentextinTableinTableTextinCaptioninColumnGroupinTableBodyinRowinCellinSelectinSelectInTableinTemplateafterBodyinFramesetafterFramesetafterAfterBodyafterAfterFramesetstopParser"
 
-var _insertionMode_index = [...]uint8{0, 7, 17, 27, 33, 47, 56, 62, 66, 73, 84, 93, 106, 117, 122, 128, 136, 151, 161, 170, 180, 193, 207, 225, 235}
+var _insertionMode_index = [...]uint8{0, 7, 17, 27, 33, 47, 56, 62, 81, 85, 92, 103, 112, 125, 136, 141, 147, 155, 170, 180, 189, 199, 212, 226, 244, 254}
 
 func (i insertionMode) String() string {
 	if i >= insertionMode(len(_insertionMode_index)-1) {

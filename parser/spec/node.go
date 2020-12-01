@@ -72,6 +72,104 @@ func (h *NodeList) Push(n *Node) {
 	*h = append(*h, n)
 }
 
+func (c *NodeList) ContainsElementInSpecificScopeExcept(target webidl.DOMString, list []webidl.DOMString) bool {
+	for i := len(*c) - 1; i >= 0; i-- {
+		entry := (*c)[i]
+		if target == entry.NodeName {
+			return true
+		}
+
+		allNotMatch := false
+		for _, name := range list {
+			if entry.NodeName == name {
+				allNotMatch = true
+				break
+			}
+		}
+		if !allNotMatch {
+			return false
+		}
+	}
+
+	return false
+}
+
+var elementInScopeList = []webidl.DOMString{
+	"applet",
+	"caption",
+	"html",
+	"table",
+	"td",
+	"th",
+	"marquee",
+	"object",
+	"template",
+	"mi",
+	"mo",
+	"mn",
+	"ms",
+	"mtext",
+	"annotation-xml",
+	"foreignObject",
+	"desc",
+	"title",
+}
+
+func (c *NodeList) ContainsElementInSpecificScope(target webidl.DOMString, list []webidl.DOMString) bool {
+	for i := len(*c) - 1; i >= 0; i-- {
+		entry := (*c)[i]
+		if target == entry.NodeName {
+			return true
+		}
+
+		for _, name := range list {
+			if entry.NodeName == name {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
+func (c *NodeList) ContainsElementInScope(target webidl.DOMString) bool {
+	return c.ContainsElementInSpecificScope(target, elementInScopeList)
+}
+
+func (c *NodeList) ContainsElementInListItemScope(target webidl.DOMString) bool {
+	list := []webidl.DOMString{
+		"ol",
+		"ul",
+	}
+	list = append(list, elementInScopeList...)
+	return c.ContainsElementInSpecificScope(target, list)
+}
+
+func (c *NodeList) ContainsElementInButtonScope(target webidl.DOMString) bool {
+	list := []webidl.DOMString{
+		"button",
+	}
+	list = append(list, elementInScopeList...)
+	return c.ContainsElementInSpecificScope(target, list)
+}
+
+func (c *NodeList) ContainsElementInTableScope(target webidl.DOMString) bool {
+	list := []webidl.DOMString{
+		"html",
+		"table",
+		"template",
+	}
+	return c.ContainsElementInSpecificScope(target, list)
+}
+
+func (c *NodeList) ContainsElementInSelectScope(target webidl.DOMString) bool {
+	list := []webidl.DOMString{
+		"optgroup",
+		"option",
+	}
+	return c.ContainsElementInSpecificScopeExcept(target, list)
+}
+
 type NodeType uint16
 
 const (
