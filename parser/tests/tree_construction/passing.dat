@@ -3166,7 +3166,7 @@ foo"
 |     <table>
 
 #data
-<p><table></table>
+
 #errors
 (1,3): expected-doctype-but-got-start-tag
 #document

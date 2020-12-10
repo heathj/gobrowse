@@ -54,7 +54,7 @@ type HTMLTreeConstructor struct {
 	scriptingEnabled                              bool
 	originalInsertionMode                         insertionMode
 	stackOfOpenElements, activeFormattingElements spec.NodeList
-	stackOfInsertionModes                         []insertionMode
+	stackOfTemplateInsertionModes                 []insertionMode
 	headElementPointer                            *spec.Node
 	formElementPointer                            *spec.Node
 	pendingTableCharacterTokens                   []*Token
@@ -293,7 +293,7 @@ func (c *HTMLTreeConstructor) resetInsertionMode() insertionMode {
 		case "table":
 			return inTable
 		case "template":
-			return c.stackOfInsertionModes[len(c.stackOfInsertionModes)-1]
+			return c.stackOfTemplateInsertionModes[len(c.stackOfTemplateInsertionModes)-1]
 		case "head":
 			return inHead
 		case "body":
@@ -1743,7 +1743,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 
 		return false, inBody, err
 	case endOfFileToken:
-		if len(c.stackOfInsertionModes) != 0 {
+		if len(c.stackOfTemplateInsertionModes) != 0 {
 			return c.useRulesFor(t, inTemplate)
 		}
 
@@ -2259,7 +2259,7 @@ func (c *HTMLTreeConstructor) inTemplateModeHandler(t *Token) (bool, insertionMo
 		// parse error
 		c.stackOfOpenElements.PopUntil("template")
 		c.clearListOfActiveFormattingElementsToLastMarker()
-		c.stackOfInsertionModes = c.stackOfInsertionModes[:len(c.stackOfInsertionModes)-1]
+		c.stackOfTemplateInsertionModes = c.stackOfTemplateInsertionModes[:len(c.stackOfTemplateInsertionModes)-1]
 		return true, c.resetInsertionMode(), generalParseError
 	default:
 	}
@@ -2457,7 +2457,10 @@ type treeConstructionModeHandler func(t *Token) (bool, insertionMode, parseError
 // ConstructTree constructs the HTML tree from the tokens that are emitted from the
 // tokenizer.
 func (c *HTMLTreeConstructor) ConstructTree() {
+	c.constructTreeStartState(initial)
+}
 
+func (c *HTMLTreeConstructor) constructTreeStartState(im insertionMode) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Printf("%s %s\n", err, de.Stack())
@@ -2466,15 +2469,15 @@ func (c *HTMLTreeConstructor) ConstructTree() {
 	}()
 
 	var (
-		token     *Token
-		nextMode  insertionMode
-		reprocess bool
+		token    *Token
+		nextMode insertionMode = im
 	)
+	c.curInsertionMode = im
 	for token = range c.tokenChannel {
+		reprocess := true
 		if nextMode == stopParser {
 			break
 		}
-		nextMode, reprocess = c.processToken(token, nextMode)
 		for reprocess {
 			nextMode, reprocess = c.processToken(token, nextMode)
 		}

@@ -1,41 +1,49 @@
 package parser
 
 import (
+	"browser/parser/spec"
+	"browser/parser/webidl"
 	"io/ioutil"
 	"strings"
 	"testing"
 )
 
+type docFramementTest struct {
+	enabled bool
+	context *spec.Node
+}
+
 type treeTest struct {
 	in       string
+	docFrag  docFramementTest
 	expected string
 }
 
-func getExpected(splits []string) string {
-	ret := ""
+func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
+	expected := ""
+	var docFrag *spec.Node
 	for i := range splits {
 		switch splits[i] {
 		case "#errors":
+		case "#document-fragment":
+			docFrag = spec.NewDOMElement(nil, webidl.DOMString(splits[i+1]), "html")
 		case "#document":
-			ret = "#document\n"
+			expected = "#document\n"
 			for j := i + 1; j < len(splits); j++ {
 				if len(splits[j]) == 0 {
 					continue
 				}
-				if len(splits[j]) == 0 {
-					continue
-				}
 
-				ret += splits[j] + "\n"
+				expected += splits[j] + "\n"
 			}
-			return ret
+			return expected, docFrag
 		}
 	}
-	return ret
+	return expected, docFrag
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -49,16 +57,22 @@ func parseTests(t *testing.T) []treeTest {
 		}
 		t := treeTest{}
 		splits := strings.Split(test, "\n")
-		for i := 0; i < len(splits); i++ {
-			if splits[i] == "#document" || splits[i] == "#errors" {
+		for _, s := range splits {
+			if s == "#document" || s == "#errors" {
 				break
 			}
-			t.in += splits[i] + "\n"
+			t.in += s + "\n"
 		}
+		for _, s := range splits {
+			if s == "#document-fragment" {
+				t.docFrag.enabled = true
+			}
+		}
+
 		if len(t.in) > 0 {
 			t.in = t.in[:len(t.in)-1]
 		}
-		t.expected = getExpected(splits)
+		t.expected, t.docFrag.context = getExpectedAndDocFrag(splits)
 		treeTests = append(treeTests, t)
 	}
 
@@ -76,17 +90,30 @@ func TestTreeConstructor(t *testing.T) {
 func runTreeConstructorTest(test treeTest, t *testing.T) {
 	t.Run(test.in, func(t *testing.T) {
 		t.Parallel()
-		p, tcc, sc, wg := NewHTMLTokenizer(test.in, htmlParserConfig{debug: 0})
-		tc := NewHTMLTreeConstructor(tcc, sc, wg)
-		wg.Add(3)
-		go tc.ConstructTree()
-		go p.Tokenize()
+		if test.docFrag.enabled {
+			nodes := ParseHTMLFragment(test.docFrag.context, test.in, noQuirks, false)
+			n := spec.NewDOMElement(nil, "html", "html")
+			for _, node := range nodes {
+				n.AppendChild(node)
+			}
+			s := n.String()
 
-		wg.Wait()
-		s := tc.HTMLDocument.Node.String()
+			if s != test.expected {
+				t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)
+			}
+		} else {
+			p, tcc, sc, wg := NewHTMLTokenizer(test.in, htmlParserConfig{debug: 0})
+			tc := NewHTMLTreeConstructor(tcc, sc, wg)
+			wg.Add(3)
+			go tc.ConstructTree()
+			go p.Tokenize()
 
-		if s != test.expected {
-			t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)
+			wg.Wait()
+			s := tc.HTMLDocument.Node.String()
+
+			if s != test.expected {
+				t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)
+			}
 		}
 	})
 }
