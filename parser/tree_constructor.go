@@ -250,6 +250,10 @@ func (c *HTMLTreeConstructor) clearListOfActiveFormattingElementsToLastMarker() 
 }
 
 func (c *HTMLTreeConstructor) resetInsertionMode() insertionMode {
+	return c.resetInsertionModeWithContext(nil)
+}
+
+func (c *HTMLTreeConstructor) resetInsertionModeWithContext(context *spec.Node) insertionMode {
 	last := false
 	lastID := len(c.stackOfOpenElements) - 1
 	node := c.stackOfOpenElements[lastID]
@@ -257,6 +261,10 @@ func (c *HTMLTreeConstructor) resetInsertionMode() insertionMode {
 	for {
 		if j == 0 {
 			last = true
+			if c.createdBy == htmlFragmentParsingAlgorithm &&
+				context != nil {
+				node = context
+			}
 		}
 		switch node.NodeName {
 		case "select":

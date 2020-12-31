@@ -3166,7 +3166,7 @@ foo"
 |     <table>
 
 #data
-
+<p><table></table>
 #errors
 (1,3): expected-doctype-but-got-start-tag
 #document
@@ -3175,3 +3175,62 @@ foo"
 |   <body>
 |     <p>
 |       <table>
+
+#data
+direct div content
+#errors
+#document-fragment
+div
+#document
+| "direct div content"
+
+#data
+direct textarea content
+#errors
+#document-fragment
+textarea
+#document
+| "direct textarea content"
+
+#data
+textarea content with <em>pseudo</em> <foo>markup
+#errors
+#document-fragment
+textarea
+#document
+| "textarea content with <em>pseudo</em> <foo>markup"
+
+#data
+this is &#x0043;DATA inside a <style> element
+#errors
+#document-fragment
+style
+#document
+| "this is &#x0043;DATA inside a <style> element"
+
+#data
+</plaintext>
+#errors
+#document-fragment
+plaintext
+#document
+| "</plaintext>"
+
+#data
+setting html's innerHTML
+#errors
+#document-fragment
+html
+#document
+| <head>
+| <body>
+|   "setting html's innerHTML"
+
+#data
+<title>setting head's innerHTML</title>
+#errors
+#document-fragment
+head
+#document
+| <title>
+|   "setting head's innerHTML"

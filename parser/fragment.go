@@ -1,8 +1,26 @@
 package parser
 
-import "browser/parser/spec"
+import (
+	"browser/parser/spec"
+	"sort"
+	"strings"
+)
 
-func SerializeHTMLFrame(fragment *spec.Node) string {
+// https://html.spec.whatwg.org/#escapingString
+func escapeString(s string, attrVal bool) string {
+	s = strings.Replace(s, "&", "&amp;", -1)
+	s = strings.Replace(s, "\u00A0", "&nbsp;", -1)
+	if attrVal {
+		s = strings.Replace(s, "\"", "&quot;", -1)
+	} else {
+		s = strings.Replace(s, "<", "&lt;", -1)
+		s = strings.Replace(s, ">", "&gt;", -1)
+	}
+
+	return s
+}
+
+func SerializeHTMLFragement(fragment *spec.Node) string {
 	ret := ""
 	switch fragment.NodeName {
 	case "basefont", "bgsound", "frame", "keygen":
@@ -13,12 +31,45 @@ func SerializeHTMLFrame(fragment *spec.Node) string {
 		switch child.NodeType {
 		case spec.ElementNode:
 			ret += "<" + string(child.NodeName)
-			if child.Element.is
-		case spec.TextNode:
-		case spec.CommentNode:
-		case spec.ProcessingInstructionNode:
-		case spec.DocumentTypeNode:
 
+			// TODO: implementation defined, but needs to be stable
+			keys := make([]string, 0, len(child.Attributes.Attrs))
+			for name := range child.Attributes.Attrs {
+				keys = append(keys, name)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				ret += " " + k + "=" + "\"" + escapeString(child.Attributes.Attrs[k], true) + "\""
+			}
+			ret += ">"
+			ret += SerializeHTMLFragement(child) + "</" + string(child.NodeName) + ">"
+		case spec.TextNode:
+			switch child.ParentNode.NodeName {
+			case "style", "script", "xmp", "iframe", "noembed", "noframes", "plaintext":
+				ret += string(child.Text.Data)
+			default:
+				// TODO: and scripting enabled
+				if child.ParentNode.NodeName == "noscript" {
+					ret += string(child.Text.Data)
+				} else {
+					ret += escapeString(string(child.Text.Data), false)
+				}
+			}
+		case spec.CommentNode:
+			ret += "<!--" +
+				string(child.Comment.Data) +
+				"-->"
+		case spec.ProcessingInstructionNode:
+			ret += "<?" +
+				string(child.ProcessingInstruction.Target) +
+				" " +
+				string(child.ProcessingInstruction.Data) +
+				">"
+		case spec.DocumentTypeNode:
+			ret += "<!DOCTYPE" +
+				" " +
+				string(child.DocumentType.Name) +
+				">"
 		}
 	}
 	return ret
@@ -66,7 +117,7 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 		TagName:    string(context.NodeName),
 		Attributes: context.Attributes.Attrs,
 	}*/
-	im := treeConstructor.resetInsertionMode()
+	im := treeConstructor.resetInsertionModeWithContext(context)
 	var next *spec.Node = context.ParentNode
 	for {
 		if next == nil {

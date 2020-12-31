@@ -36,6 +36,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 
 				expected += splits[j] + "\n"
 			}
+			//expected = expected[:len(expected)-1]
 			return expected, docFrag
 		}
 	}
@@ -43,7 +44,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -92,12 +93,11 @@ func runTreeConstructorTest(test treeTest, t *testing.T) {
 		t.Parallel()
 		if test.docFrag.enabled {
 			nodes := ParseHTMLFragment(test.docFrag.context, test.in, noQuirks, false)
-			n := spec.NewDOMElement(nil, "html", "html")
+			n := spec.NewHTMLDocumentNode()
 			for _, node := range nodes {
 				n.AppendChild(node)
 			}
-			s := n.String()
-
+			s := n.Node.String()
 			if s != test.expected {
 				t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)
 			}
