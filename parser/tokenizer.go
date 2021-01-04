@@ -13,6 +13,7 @@ type htmlParserConfig map[htmlParserConfigKey]int
 
 const (
 	debug = iota
+	scripting
 )
 
 // HTMLTokenizer holds state for the various state of the tokenizer.

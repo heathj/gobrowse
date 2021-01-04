@@ -13,10 +13,19 @@ type docFramementTest struct {
 	context *spec.Node
 }
 
+type scriptingMode uint
+
+const (
+	scriptBoth scriptingMode = iota
+	scriptOff
+	scriptOn
+)
+
 type treeTest struct {
-	in       string
-	docFrag  docFramementTest
-	expected string
+	in         string
+	docFrag    docFramementTest
+	scriptMode scriptingMode
+	expected   string
 }
 
 func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
@@ -36,7 +45,6 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 
 				expected += splits[j] + "\n"
 			}
-			//expected = expected[:len(expected)-1]
 			return expected, docFrag
 		}
 	}
@@ -44,7 +52,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -67,6 +75,10 @@ func parseTests(t *testing.T) []treeTest {
 		for _, s := range splits {
 			if s == "#document-fragment" {
 				t.docFrag.enabled = true
+			} else if s == "#script-on" {
+				t.scriptMode = scriptOn
+			} else if s == "#script-off" {
+				t.scriptMode = scriptOff
 			}
 		}
 
@@ -83,16 +95,25 @@ func parseTests(t *testing.T) []treeTest {
 func TestTreeConstructor(t *testing.T) {
 	tests := parseTests(t)
 	for _, test := range tests {
-		runTreeConstructorTest(test, t)
+		if test.scriptMode == scriptBoth {
+			runTreeConstructorTest(test, t, false)
+			runTreeConstructorTest(test, t, true)
+		} else {
+			if test.scriptMode == scriptOn {
+				runTreeConstructorTest(test, t, true)
+			} else {
+				runTreeConstructorTest(test, t, false)
+			}
+		}
 	}
 
 }
 
-func runTreeConstructorTest(test treeTest, t *testing.T) {
+func runTreeConstructorTest(test treeTest, t *testing.T, scriptingEnabled bool) {
 	t.Run(test.in, func(t *testing.T) {
 		t.Parallel()
 		if test.docFrag.enabled {
-			nodes := ParseHTMLFragment(test.docFrag.context, test.in, noQuirks, false)
+			nodes := ParseHTMLFragment(test.docFrag.context, test.in, noQuirks, scriptingEnabled)
 			n := spec.NewHTMLDocumentNode()
 			for _, node := range nodes {
 				n.AppendChild(node)
@@ -104,6 +125,7 @@ func runTreeConstructorTest(test treeTest, t *testing.T) {
 		} else {
 			p, tcc, sc, wg := NewHTMLTokenizer(test.in, htmlParserConfig{debug: 0})
 			tc := NewHTMLTreeConstructor(tcc, sc, wg)
+			tc.scriptingEnabled = scriptingEnabled
 			wg.Add(3)
 			go tc.ConstructTree()
 			go p.Tokenize()

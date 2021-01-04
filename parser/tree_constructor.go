@@ -1078,16 +1078,16 @@ func (c *HTMLTreeConstructor) beforeHeadModeHandler(t *Token) (bool, insertionMo
 
 }
 
-func (c *HTMLTreeConstructor) genericRCDATAElementParsingAlgorithm(t *Token, ogi insertionMode) (bool, insertionMode, parseError) {
+func (c *HTMLTreeConstructor) genericRCDATAElementParsingAlgorithm(t *Token) (bool, insertionMode, parseError) {
 	c.insertHTMLElementForToken(t)
-	c.originalInsertionMode = ogi
+	c.originalInsertionMode = c.curInsertionMode
 	c.stateChannel <- rcDataState
 	return false, text, noError
 }
 
-func (c *HTMLTreeConstructor) genericRawTextElementParsingAlgorithm(t *Token, ogi insertionMode) (bool, insertionMode, parseError) {
+func (c *HTMLTreeConstructor) genericRawTextElementParsingAlgorithm(t *Token) (bool, insertionMode, parseError) {
 	c.insertHTMLElementForToken(t)
-	c.originalInsertionMode = ogi
+	c.originalInsertionMode = c.curInsertionMode
 	c.stateChannel <- rawTextState
 	return false, text, noError
 }
@@ -1125,16 +1125,15 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			//TODO: char encoding settings
 			return false, inHead, noError
 		case "title":
-			return c.genericRCDATAElementParsingAlgorithm(t, c.curInsertionMode)
+			return c.genericRCDATAElementParsingAlgorithm(t)
 		case "noscript":
 			if c.scriptingEnabled {
-
-			} else {
-				//c.WriteHTMLElement(t)
-				return false, inHeadNoScript, noError
+				return c.genericRawTextElementParsingAlgorithm(t)
 			}
+			c.insertHTMLElementForToken(t)
+			return false, inHeadNoScript, noError
 		case "noframes", "style":
-			return c.genericRawTextElementParsingAlgorithm(t, c.curInsertionMode)
+			return c.genericRawTextElementParsingAlgorithm(t)
 		case "script":
 			il := c.getAppropriatePlaceForInsertion(nil)
 			elem := c.createElementForToken(t, "html", il.node)
@@ -1623,9 +1622,21 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			c.frameset = framesetNotOK
 			return false, inBodyPeekNextToken, noError
 		case "xmp":
+			if c.stackOfOpenElements.ContainsElementInButtonScope("p") {
+				c.closePElement()
+			}
+			c.reconstructActiveFormattingElements()
+			c.frameset = framesetNotOK
+			return c.genericRawTextElementParsingAlgorithm(t)
 		case "iframe":
+			c.frameset = framesetNotOK
+			return c.genericRawTextElementParsingAlgorithm(t)
 		case "noembed":
+			return c.genericRawTextElementParsingAlgorithm(t)
 		case "noscript":
+			if c.scriptingEnabled {
+				return c.genericRawTextElementParsingAlgorithm(t)
+			}
 		case "select":
 			c.reconstructActiveFormattingElements()
 			c.insertHTMLElementForToken(t)
@@ -2505,28 +2516,29 @@ var tagStateMappings = map[string][]insertionMode{
 	"xmp":       {inBody},
 }
 
-func specialTokenWrongState(token *Token, nextMode insertionMode) bool {
+func specialTokenWrongState(token *Token, nextMode insertionMode, scriptingEnabled bool) bool {
 	if token.TokenType != startTagToken {
-		return false
+		return true
 	}
 
 	if nextMode != inHead && nextMode != inBody {
-		return false
+		return true
 	}
 
-	for tag, states := range tagStateMappings {
-		if token.TagName != tag {
-			continue
+	if states, ok := tagStateMappings[token.TagName]; !ok {
+		return true
+	} else {
+		if token.TagName == "noscript" && !scriptingEnabled && nextMode == inHead {
+			return true
 		}
-
 		for _, state := range states {
 			if nextMode == state {
-				return true
+				return false
 			}
 		}
 	}
 
-	return false
+	return true
 }
 
 func (c *HTMLTreeConstructor) processToken(token *Token, nextMode insertionMode) (insertionMode, bool) {
@@ -2543,7 +2555,7 @@ func (c *HTMLTreeConstructor) processToken(token *Token, nextMode insertionMode)
 	// if we didn't consume the token, we don't want to check this state
 	// only check if the token is in this special state when we are in our
 	// consuming token state
-	if !reprocess && specialTokenWrongState(token, c.curInsertionMode) {
+	if !reprocess && specialTokenWrongState(token, nextMode, c.scriptingEnabled) {
 		c.stateChannel <- dataState
 	}
 	return c.curInsertionMode, reprocess
