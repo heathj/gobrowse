@@ -3,6 +3,7 @@ package parser
 import (
 	"browser/parser/spec"
 	"browser/parser/webidl"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -110,7 +111,7 @@ func TestTreeConstructor(t *testing.T) {
 }
 
 func runTreeConstructorTest(test treeTest, t *testing.T, scriptingEnabled bool) {
-	t.Run(test.in, func(t *testing.T) {
+	t.Run(fmt.Sprintf("%s-scripting-%t", test.in, scriptingEnabled), func(t *testing.T) {
 		t.Parallel()
 		if test.docFrag.enabled {
 			nodes := ParseHTMLFragment(test.docFrag.context, test.in, noQuirks, scriptingEnabled)

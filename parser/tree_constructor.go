@@ -385,15 +385,14 @@ func (c *HTMLTreeConstructor) insertForeignElementForToken(t *Token, namespace w
 	return elem
 }
 
-func (c *HTMLTreeConstructor) useRulesFor(t *Token, expectedState insertionMode) (bool, insertionMode, parseError) {
-	reprocess, nextstate, err := c.mappings[expectedState](t)
+func (c *HTMLTreeConstructor) useRulesFor(t *Token, mode insertionMode) (bool, insertionMode, parseError) {
+	reprocess, nextMode := c.processToken(t, mode)
 
-	// if the next state is the same as the expected state, this means that mode handler didn't
-	// change the state. We should use the current return state.
-	if nextstate == expectedState {
-		return reprocess, c.curInsertionMode, err
+	// if the mode didn't change return to where we came from.
+	if nextMode == mode {
+		return reprocess, c.curInsertionMode, noError
 	}
-	return reprocess, nextstate, err
+	return reprocess, nextMode, noError
 }
 
 func compareLastN(n int, elems spec.NodeList, elem *spec.Node) bool {
@@ -1081,14 +1080,14 @@ func (c *HTMLTreeConstructor) beforeHeadModeHandler(t *Token) (bool, insertionMo
 func (c *HTMLTreeConstructor) genericRCDATAElementParsingAlgorithm(t *Token) (bool, insertionMode, parseError) {
 	c.insertHTMLElementForToken(t)
 	c.originalInsertionMode = c.curInsertionMode
-	c.stateChannel <- rcDataState
+	c.switchTokenizerState(t, rcDataState)
 	return false, text, noError
 }
 
 func (c *HTMLTreeConstructor) genericRawTextElementParsingAlgorithm(t *Token) (bool, insertionMode, parseError) {
 	c.insertHTMLElementForToken(t)
 	c.originalInsertionMode = c.curInsertionMode
-	c.stateChannel <- rawTextState
+	c.switchTokenizerState(t, rawTextState)
 	return false, text, noError
 }
 
@@ -1142,6 +1141,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			il.insert(elem)
 			c.stackOfOpenElements.Push(elem)
 			c.stateChannel <- scriptDataState
+			t.Special = false
 			c.originalInsertionMode = c.curInsertionMode
 			return false, text, noError
 		case "template":
@@ -1525,7 +1525,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 				c.closePElement()
 			}
 			c.insertHTMLElementForToken(t)
-			c.stateChannel <- plaintextState
+			c.switchTokenizerState(t, plaintextState)
 		case "button":
 			if c.stackOfOpenElements.ContainsElementInScope("button") {
 				c.generateImpliedEndTags([]webidl.DOMString{})
@@ -1617,7 +1617,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			return true, inBody, generalParseError
 		case "textarea":
 			c.insertHTMLElementForToken(t)
-			c.stateChannel <- rcDataState
+			c.switchTokenizerState(t, rcDataState)
 			c.originalInsertionMode = c.curInsertionMode
 			c.frameset = framesetNotOK
 			return false, inBodyPeekNextToken, noError
@@ -2440,6 +2440,11 @@ func (c *HTMLTreeConstructor) afterAfterFramesetModeHandler(t *Token) (bool, ins
 	return false, afterAfterFrameset, generalParseError
 }
 
+func (c *HTMLTreeConstructor) switchTokenizerState(t *Token, state tokenizerState) {
+	c.stateChannel <- state
+	t.Special = false
+}
+
 //go:generate stringer -type=insertionMode
 type insertionMode uint
 
@@ -2498,65 +2503,68 @@ func (c *HTMLTreeConstructor) constructTreeStartState(im insertionMode) {
 			break
 		}
 		for reprocess {
-			nextMode, reprocess = c.processToken(token, nextMode)
+			reprocess, nextMode = c.processToken(token, nextMode)
+			c.curInsertionMode = nextMode
 		}
 	}
 }
 
-var tagStateMappings = map[string][]insertionMode{
-	"script":    {inHead},
-	"noembed":   {inBody},
-	"noscript":  {inHead, inBody},
-	"textarea":  {inBody},
-	"iframe":    {inBody},
-	"noframes":  {inHead},
-	"style":     {inHead},
-	"title":     {inHead},
-	"plaintext": {inBody},
-	"xmp":       {inBody},
+var tagStateMappings = map[string]insertionMode{
+	"script":    inHead,
+	"noembed":   inBody,
+	"textarea":  inBody,
+	"iframe":    inBody,
+	"noframes":  inHead,
+	"style":     inHead,
+	"title":     inHead,
+	"plaintext": inBody,
+	"xmp":       inBody,
 }
 
-func specialTokenWrongState(token *Token, nextMode insertionMode, scriptingEnabled bool) bool {
-	if token.TokenType != startTagToken {
-		return true
-	}
+// A special token is a start tag token in either the inHead or inBody mode
+// and in the list of token keys above.
+func isSpecialToken(token *Token) bool {
+	return token.Special
+}
 
+func isWrongTreeState(token *Token, nextMode insertionMode, scriptingEnabled bool) bool {
+	// quick mode check before other odd state checks
+	// if we aren't in the head or body mode handlers, we
+	// are in the wrong state for a special token.
 	if nextMode != inHead && nextMode != inBody {
 		return true
 	}
 
-	if states, ok := tagStateMappings[token.TagName]; !ok {
-		return true
-	} else {
-		if token.TagName == "noscript" && !scriptingEnabled && nextMode == inHead {
+	// special check for noscript elements because we need to be able to tell if
+	// scripting has been enabled or not for these elements. Also there are two
+	// states that we need to check for noscript elements
+	if token.TagName == "noscript" {
+		if !scriptingEnabled {
 			return true
-		}
-		for _, state := range states {
-			if nextMode == state {
-				return false
-			}
+		} else {
+			return false
 		}
 	}
 
-	return true
+	return nextMode != tagStateMappings[token.TagName]
 }
 
-func (c *HTMLTreeConstructor) processToken(token *Token, nextMode insertionMode) (insertionMode, bool) {
-	var (
-		reprocess bool
-		parseErr  parseError
-	)
-	fmt.Printf("token: %+vmode: %s\n", token, c.curInsertionMode)
-	reprocess, c.curInsertionMode, parseErr = c.mappings[nextMode](token)
-	fmt.Printf("tree: \n%s\n\n", c.HTMLDocument.Node)
+func specialTokenWrongState(token *Token, nextMode insertionMode, scriptingEnabled bool) bool {
+	return isSpecialToken(token) && isWrongTreeState(token, nextMode, scriptingEnabled)
+}
+
+func (c *HTMLTreeConstructor) processToken(token *Token, startMode insertionMode) (bool, insertionMode) {
+	fmt.Printf("[TREE]token: %+vmode: %s\n", token, startMode)
+	reprocess, nextMode, parseErr := c.mappings[startMode](token)
+	fmt.Printf("[TREE]tree after: \n%s\n\n", c.HTMLDocument.Node)
 	if c.config[debug] == 0 {
 		logError(parseErr)
 	}
 	// if we didn't consume the token, we don't want to check this state
 	// only check if the token is in this special state when we are in our
 	// consuming token state
-	if !reprocess && specialTokenWrongState(token, nextMode, c.scriptingEnabled) {
-		c.stateChannel <- dataState
+	if !reprocess && specialTokenWrongState(token, startMode, c.scriptingEnabled) {
+		c.switchTokenizerState(token, dataState)
 	}
-	return c.curInsertionMode, reprocess
+	return reprocess, nextMode
 }

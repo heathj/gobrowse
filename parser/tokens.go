@@ -37,6 +37,7 @@ type Token struct {
 	ForceQuirks      bool
 	SelfClosing      bool
 	Data             string
+	Special          bool
 }
 
 func (t *Token) String() string {

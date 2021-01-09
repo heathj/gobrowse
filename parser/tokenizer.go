@@ -3,6 +3,7 @@ package parser
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -240,8 +241,10 @@ func (p *HTMLTokenizer) emit(tok Token) {
 }
 
 func (p *HTMLTokenizer) emitAndWait(tok Token) tokenizerState {
+	tok.Special = true
 	p.emit(tok)
-	return <-p.stateChannel
+	ret := <-p.stateChannel
+	return ret
 }
 
 func (p *HTMLTokenizer) isEndOfFile() bool {
@@ -2328,6 +2331,7 @@ func (p *HTMLTokenizer) tokenizeEOF(nextState tokenizerState) {
 }
 
 func (p *HTMLTokenizer) processRune(r rune, nextState tokenizerState) (bool, tokenizerState) {
+	fmt.Printf("[TOKEN]rune: %+vmode: %s\n", r, nextState)
 	reconsume, nextState, parseErr := p.mappings[nextState](r)
 	if p.config[debug] == 1 {
 		logError(parseErr)
