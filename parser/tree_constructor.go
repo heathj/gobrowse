@@ -2256,14 +2256,17 @@ func (c *HTMLTreeConstructor) inSelectModeHandler(t *Token) (bool, insertionMode
 }
 func (c *HTMLTreeConstructor) inSelectInTableModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
-	case characterToken:
-	case commentToken:
-	case docTypeToken:
 	case startTagToken:
+		c.stackOfOpenElements.PopUntil("select")
+		return true, c.resetInsertionMode(), generalParseError
 	case endTagToken:
-	default:
+		if !c.stackOfOpenElements.ContainsElementInTableScope(webidl.DOMString(t.TagName)) {
+			return false, inSelectInTable, generalParseError
+		}
+		c.stackOfOpenElements.PopUntil("select")
+		return true, c.resetInsertionMode(), generalParseError
 	}
-	return false, initial, noError
+	return c.useRulesFor(t, inSelect)
 }
 func (c *HTMLTreeConstructor) inTemplateModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {

@@ -1,21 +1,47 @@
 #data
-</html><frameset></frameset>
+A<table><tr> B</tr> B</table>
 #errors
-(1,7): expected-doctype-but-got-end-tag
-(1,17): expected-eof-but-got-start-tag
-(1,17): unexpected-start-tag
+(1,1): expected-doctype-but-got-chars
+(1,13): foster-parenting-character
+(1,14): foster-parenting-character
+(1,20): foster-parenting-character
+(1,21): foster-parenting-character
 #document
 | <html>
 |   <head>
-|   <frameset>
+|   <body>
+|     "A B B"
+|     <table>
+|       <tbody>
+|         <tr>
 
 #data
-</body><frameset></frameset>
+A<table><tr> B</tr> </em>C</table>
 #errors
-(1,7): expected-doctype-but-got-end-tag
-(1,17): unexpected-start-tag-after-body
-(1,17): unexpected-start-tag
+(1,1): expected-doctype-but-got-chars
+(1,13): foster-parenting-character
+(1,14): foster-parenting-character
+(1,20): foster-parenting-character
+(1,25): unexpected-end-tag
+(1,26): foster-parenting-character
 #document
 | <html>
 |   <head>
-|   <frameset>
+|   <body>
+|     "A BC"
+|     <table>
+|       <tbody>
+|         <tr>
+|         " "
+
+#data
+<select><keygen>
+#errors
+(1,8): expected-doctype-but-got-start-tag
+(1,16): unexpected-input-in-select
+#document
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|     <keygen>
