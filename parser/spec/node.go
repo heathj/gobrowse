@@ -325,11 +325,19 @@ func serializeNodeType(node *Node, ident int) string {
 		if len(node.DocumentType.PublicID) == 0 && len(node.DocumentType.SystemID) == 0 {
 			return d
 		}
-		if len(node.DocumentType.PublicID) != 0 && string(node.DocumentType.PublicID) != "MISSING" {
-			d += " \"" + string(node.DocumentType.PublicID) + "\""
-		}
-		if len(node.DocumentType.SystemID) != 0 && string(node.DocumentType.SystemID) != "MISSING" {
-			d += " \"" + string(node.DocumentType.SystemID) + "\""
+		if (len(node.DocumentType.PublicID) != 0 && string(node.DocumentType.PublicID) != "MISSING") ||
+			(len(node.DocumentType.SystemID) != 0 && string(node.DocumentType.SystemID) != "MISSING") {
+			if node.DocumentType.PublicID == "MISSING" {
+				d += " \"" + "\""
+			} else {
+				d += " \"" + string(node.DocumentType.PublicID) + "\""
+			}
+
+			if node.DocumentType.SystemID == "MISSING" {
+				d += " \"" + "\""
+			} else {
+				d += " \"" + string(node.DocumentType.SystemID) + "\""
+			}
 		}
 
 		d += ">"

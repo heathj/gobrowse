@@ -38,8 +38,8 @@ const (
 type frameset uint
 
 const (
-	framesetNotOK frameset = iota
-	framesetOK
+	framesetOK frameset = iota
+	framesetNotOK
 )
 
 // HTMLTreeConstructor holds the state for various state of the tree construction phase.
@@ -1165,7 +1165,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 }
 
 func (c *HTMLTreeConstructor) defaultInHeadNoScriptModeHandler(t *Token) (bool, insertionMode, parseError) {
-	//c.PopOpenElements()
+	c.stackOfOpenElements.Pop()
 	return true, inHead, generalParseError
 }
 func (c *HTMLTreeConstructor) inHeadNoScriptModeHandler(t *Token) (bool, insertionMode, parseError) {
@@ -1191,7 +1191,7 @@ func (c *HTMLTreeConstructor) inHeadNoScriptModeHandler(t *Token) (bool, inserti
 	case endTagToken:
 		switch t.TagName {
 		case "noscript":
-			//c.PopOpenElements()
+			c.stackOfOpenElements.Pop()
 			return false, inHead, noError
 		case "br":
 			return c.defaultInHeadNoScriptModeHandler(t)
@@ -1604,6 +1604,9 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 				c.frameset = framesetNotOK
 			}
 		case "param", "source", "track":
+			c.insertHTMLElementForToken(t)
+			c.stackOfOpenElements.Pop()
+			// ack self closing
 		case "hr":
 			if c.stackOfOpenElements.ContainsElementInButtonScope("p") {
 				c.closePElement()
@@ -1969,8 +1972,8 @@ func (c *HTMLTreeConstructor) inColumnGroupModeHandler(t *Token) (bool, insertio
 		switch t.Data[0] {
 		case '\u0009', '\u000A', '\u000C', '\u000D', '\u0020':
 			c.insertComment(t)
+			return false, inColumnGroup, noError
 		}
-		return false, inColumnGroup, noError
 	case commentToken:
 		c.insertComment(t)
 		return false, inColumnGroup, noError

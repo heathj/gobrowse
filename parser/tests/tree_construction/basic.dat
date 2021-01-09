@@ -1,18 +1,21 @@
 #data
-<!DOCTYPE html><body><title>X</title><meta name=z><link rel=foo><style>
-x { content:"</style" } </style>
+</html><frameset></frameset>
 #errors
+(1,7): expected-doctype-but-got-end-tag
+(1,17): expected-eof-but-got-start-tag
+(1,17): unexpected-start-tag
 #document
-| <!DOCTYPE html>
 | <html>
 |   <head>
-|   <body>
-|     <title>
-|       "X"
-|     <meta>
-|       name="z"
-|     <link>
-|       rel="foo"
-|     <style>
-|       "
-x { content:"</style" } "
+|   <frameset>
+
+#data
+</body><frameset></frameset>
+#errors
+(1,7): expected-doctype-but-got-end-tag
+(1,17): unexpected-start-tag-after-body
+(1,17): unexpected-start-tag
+#document
+| <html>
+|   <head>
+|   <frameset>
