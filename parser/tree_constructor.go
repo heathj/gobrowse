@@ -643,7 +643,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 		if f != -1 {
 			c.activeFormattingElements.Remove(f)
 			// shifting the bookmark after removing the element above. we only shift
-			// though if the bookmark was later in the list. if f above was afer the bookmark
+			// though if the bookmark was later in the list. if f above was after the bookmark
 			// position, the position wouldn't change:
 			// [1, 2, f, bm] -> [1, 2, bm] (position changed)
 			// [bm, 1, 2, f] -> [bm, 1, 2] (no position changed)
@@ -662,7 +662,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t *Token) (bool, parseErro
 				if b+1 == len(c.stackOfOpenElements) {
 					c.stackOfOpenElements.Push(clone)
 				} else {
-					c.stackOfOpenElements[b+1] = clone
+					c.stackOfOpenElements.WedgeIn(b+1, clone)
 				}
 			}
 		}
