@@ -48,23 +48,39 @@ func (h *NodeList) Pop() *Node {
 	return popped
 }
 
-func (h *NodeList) PopUntil(tagName webidl.DOMString) {
-	h.PopUntilMany([]webidl.DOMString{tagName})
+func (h *NodeList) PopUntil(tagName webidl.DOMString) *Node {
+	return h.PopUntilMany([]webidl.DOMString{tagName})
 }
 
-func (h *NodeList) PopUntilMany(tagNames []webidl.DOMString) {
+func (h *NodeList) PopUntilMany(tagNames []webidl.DOMString) *Node {
 	var popped *Node
 	for {
 		popped = h.Pop()
 		if popped == nil {
-			return
+			return nil
 		}
 
 		for _, tagName := range tagNames {
 			if popped.NodeName == tagName {
-				return
+				return popped
 			}
 		}
+	}
+}
+
+func (h *NodeList) PopUntilConditions(funcs []func(e *Node) bool) *Node {
+	for {
+		last := len(*h) - 1
+		if last < 0 {
+			return nil
+		}
+		for _, f := range funcs {
+			if f((*h)[last]) {
+				return (*h)[last]
+			}
+		}
+
+		h.Pop()
 	}
 }
 
@@ -247,7 +263,7 @@ func NewDocTypeNode(name, pub, sys string) *Node {
 	}
 }
 
-func NewDOMElement(od *Node, name, namespace webidl.DOMString, optionals ...webidl.DOMString) *Node {
+func NewDOMElement(od *Node, name webidl.DOMString, namespace Namespace, optionals ...webidl.DOMString) *Node {
 	// handle custom events? not sure how that will work since that is functionality of the HTML
 	// not the DOM  might need to create a shared package or something so I don't get
 	// circular deps
@@ -297,6 +313,12 @@ func serializeNodeType(node *Node, ident int) string {
 	switch node.NodeType {
 	case ElementNode:
 		e := "<" + string(node.NodeName)
+		switch node.Element.NamespaceURI {
+		case Svgns:
+			e += " svg"
+		case Mathmlns:
+			e += " math"
+		}
 		if node.Attributes != nil && len(node.Attributes.Attrs) != 0 {
 			e += ">"
 			keys := make([]string, 0, len(node.Attributes.Attrs))

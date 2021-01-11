@@ -4,15 +4,27 @@ import (
 	"browser/parser/webidl"
 )
 
+type Namespace uint
+
+const (
+	Htmlns Namespace = iota
+	Mathmlns
+	Svgns
+	Xlinkns
+	Xmlns
+	Xmlnsns
+)
+
 // https:domspec.whatwg.org/#htmlcollection
 type HTMLCollection []*Element
 
 // Element is an individual HTML element that gets added to the spec\.
 // https:domspec.whatwg.org/#interface-element
 type Element struct {
-	NamespaceURI, Prefix, LocalName, TagName, Id, ClassName, Slot webidl.DOMString
-	ClassList                                                     DOMTokenList
-	Attributes                                                    *NamedNodeMap
+	NamespaceURI                                    Namespace
+	Prefix, LocalName, TagName, Id, ClassName, Slot webidl.DOMString
+	ClassList                                       DOMTokenList
+	Attributes                                      *NamedNodeMap
 
 	*HTMLElement
 }
@@ -41,9 +53,11 @@ func (e *Element) GetElementsByTagName(qualifiedName webidl.DOMString) HTMLColle
 func (e *Element) GetElementsByTagNameNS(namespace, localName webidl.DOMString) HTMLCollection {
 	return nil
 }
-func (e *Element) GetElementsByClassName(qualifiedName webidl.DOMString) HTMLCollection    { return nil }
-func (e *Element) InsertAdjacentElement(where webidl.DOMString, element *Element) *Element { return nil }
-func (e *Element) InsertAdjacentTExt(where, data webidl.DOMString)                         {}
+func (e *Element) GetElementsByClassName(qualifiedName webidl.DOMString) HTMLCollection { return nil }
+func (e *Element) InsertAdjacentElement(where webidl.DOMString, element *Element) *Element {
+	return nil
+}
+func (e *Element) InsertAdjacentTExt(where, data webidl.DOMString) {}
 
 type ElementType uint
 

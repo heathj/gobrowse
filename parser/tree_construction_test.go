@@ -36,7 +36,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 		switch splits[i] {
 		case "#errors":
 		case "#document-fragment":
-			docFrag = spec.NewDOMElement(nil, webidl.DOMString(splits[i+1]), "html")
+			docFrag = spec.NewDOMElement(nil, webidl.DOMString(splits[i+1]), spec.Htmlns)
 		case "#document":
 			expected = "#document\n"
 			for j := i + 1; j < len(splits); j++ {
@@ -53,7 +53,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
 	if err != nil {
 		t.Error(err)
 		return nil

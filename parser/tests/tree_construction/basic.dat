@@ -1,16 +1,11 @@
 #data
-<a><div><p></a>
+<!DOCTYPE html><math><mi>
 #errors
-(1,3): expected-doctype-but-got-start-tag
-(1,15): adoption-agency-1.3
-(1,15): adoption-agency-1.3
-(1,15): expected-closing-tag-but-got-eof
+(1,25) expected-closing-tag-but-got-eof
 #document
+| <!DOCTYPE html>
 | <html>
 |   <head>
 |   <body>
-|     <a>
-|     <div>
-|       <a>
-|       <p>
-|         <a>
+|     <math math>
+|       <math mi>

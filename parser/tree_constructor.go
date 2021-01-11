@@ -9,17 +9,6 @@ import (
 	"sync"
 )
 
-type namespace uint
-
-const (
-	htmlNamepsace namespace = iota
-	mathmlNamespace
-	svgNamespace
-	xlinkNamespace
-	xmlNamespace
-	xmlnsNamespace
-)
-
 type quirksMode uint
 
 const (
@@ -52,6 +41,7 @@ type HTMLTreeConstructor struct {
 	quirksMode                                    quirksMode
 	fosterParenting                               bool
 	scriptingEnabled                              bool
+	context                                       *spec.Node
 	originalInsertionMode                         insertionMode
 	stackOfOpenElements, activeFormattingElements spec.NodeList
 	stackOfTemplateInsertionModes                 []insertionMode
@@ -133,6 +123,14 @@ func (c *HTMLTreeConstructor) getCurrentNode() *spec.Node {
 	return c.stackOfOpenElements[len(c.stackOfOpenElements)-1]
 }
 
+func (c *HTMLTreeConstructor) getAdjustedCurrentNode() *spec.Node {
+	if c.createdBy != htmlFragmentParsingAlgorithm {
+		return c.getCurrentNode()
+	}
+
+	return c.context
+}
+
 // Inserts a comment at a specific location.
 // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
 func (c *HTMLTreeConstructor) insertCommentAt(t *Token, il *insertionLocation) {
@@ -169,6 +167,82 @@ func targetInTable(name string) bool {
 		return true
 	}
 	return false
+}
+
+func (c *HTMLTreeConstructor) adjustMathMLAttrs(t *Token) {
+	if val, ok := t.Attributes["definitionurl"]; ok {
+		delete(t.Attributes, "definitionurl")
+		t.Attributes["definitionURL"] = val
+	}
+}
+
+var svgAttrTable = map[string]string{
+	"attributename":       "attributeName",
+	"attributetype":       "attributeType",
+	"basefrequency":       "baseFrequency",
+	"baseprofile":         "baseProfile",
+	"calcmode":            "calcMode",
+	"clippathunits":       "clipPathUnits",
+	"diffuseconstant":     "diffuseConstant`",
+	"edgemode":            "edgeMode",
+	"filterunits":         "filterUnits",
+	"glyphref":            "glyphRef",
+	"gradienttransform":   "gradientTransform",
+	"gradientunits":       "gradientUnits",
+	"kernelmatrix":        "kernelMatrix",
+	"kernelunitlength":    "kernelUnitLength",
+	"keypoints":           "keyPoints",
+	"keysplines":          "keySplines",
+	"keytimes":            "keyTimes",
+	"lengthadjust":        "lengthAdjust",
+	"limitingconeangle":   "limitingConeAngle",
+	"markerheight":        "markerHeight",
+	"markerunits":         "markerUnits",
+	"markerwidth":         "markerWidth",
+	"maskcontentunits":    "maskContentUnits",
+	"maskunits":           "maskUnits",
+	"numoctaves":          "numOctaves",
+	"pathlength":          "pathLength",
+	"patterncontentunits": "patternContentUnits",
+	"patterntransform":    "patternTransform",
+	"patternunits":        "patternUnits",
+	"pointsatx":           "pointsAtX",
+	"pointsaty":           "pointsAtY",
+	"pointsatz":           "pointsAtZ",
+	"preservealpha":       "preserveAlpha",
+	"preserveaspectratio": "preserveAspectRatio",
+	"primitiveunits":      "primitiveUnits",
+	"refx":                "refX",
+	"refy":                "refY",
+	"repeatcount":         "repeatCount",
+	"repeatdur":           "repeatDur",
+	"requiredextensions":  "requiredExtensions",
+	"requiredfeatures":    "requiredFeatures",
+	"specularconstant":    "specularConstant",
+	"specularexponent":    "specularExponent",
+	"spreadmethod":        "spreadMethod",
+	"startoffset":         "startOffset",
+	"stddeviation":        "stdDeviation",
+	"stitchtiles":         "stitchTiles",
+	"surfacescale":        "surfaceScale",
+	"systemlanguage":      "systemLanguage",
+	"tablevalues":         "tableValues",
+	"targetx":             "targetX",
+	"targety":             "targetY",
+	"textlength":          "textLength",
+	"viewbox":             "viewBox",
+	"viewtarget":          "viewTarget",
+	"xchannelselector":    "xChannelSelector",
+	"ychannelselector":    "yChannelSelector",
+	"zoomandpan":          "zoomAndPan",
+}
+
+func (c *HTMLTreeConstructor) adjustSVGAttrs(t *Token) {
+	for k := range t.Attributes {
+		if val, ok := svgAttrTable[k]; ok {
+			t.Attributes[k] = val
+		}
+	}
 }
 
 // https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node
@@ -233,7 +307,7 @@ type CustomElementDefinition struct {
 }
 
 //https://html.spec.whatwg.org/multipage/custom-elements.html#look-up-a-custom-element-definition
-func (c *HTMLTreeConstructor) lookUpCustomElementDefinition(document *spec.Node, ns, localName, is webidl.DOMString) *CustomElementDefinition {
+func (c *HTMLTreeConstructor) lookUpCustomElementDefinition(document *spec.Node, ns spec.Namespace, localName, is webidl.DOMString) *CustomElementDefinition {
 
 	// browsing context
 	// custom element registry
@@ -335,7 +409,7 @@ func (c *HTMLTreeConstructor) stopParsing(err parseError) (bool, insertionMode, 
 // createElementForToken creates an element from a token with the provided
 // namespace and parent element.
 // https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token
-func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns webidl.DOMString, ip *spec.Node) *spec.Node {
+func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns spec.Namespace, ip *spec.Node) *spec.Node {
 	document := ip.OwnerDocument
 	localName := webidl.DOMString(t.TagName)
 	is := t.Attributes["is"]
@@ -374,10 +448,10 @@ func (c *HTMLTreeConstructor) insertCharacter(t *Token) {
 }
 
 func (c *HTMLTreeConstructor) insertHTMLElementForToken(t *Token) *spec.Node {
-	return c.insertForeignElementForToken(t, "html")
+	return c.insertForeignElementForToken(t, spec.Htmlns)
 }
 
-func (c *HTMLTreeConstructor) insertForeignElementForToken(t *Token, namespace webidl.DOMString) *spec.Node {
+func (c *HTMLTreeConstructor) insertForeignElementForToken(t *Token, namespace spec.Namespace) *spec.Node {
 	il := c.getAppropriatePlaceForInsertion(nil)
 	elem := c.createElementForToken(t, namespace, il.node)
 	il.insert(elem)
@@ -986,7 +1060,7 @@ func (c *HTMLTreeConstructor) initialModeHandler(t *Token) (bool, insertionMode,
 }
 
 func (c *HTMLTreeConstructor) defaultBeforeHTMLModeHandler(t *Token) (bool, insertionMode, parseError) {
-	n := spec.NewDOMElement(c.HTMLDocument.Node, "html", "html")
+	n := spec.NewDOMElement(c.HTMLDocument.Node, "html", spec.Htmlns)
 	n.OwnerDocument = c.HTMLDocument.Node
 	c.HTMLDocument.AppendChild(n)
 	c.stackOfOpenElements.Push(n)
@@ -1016,7 +1090,7 @@ func (c *HTMLTreeConstructor) beforeHTMLModeHandler(t *Token) (bool, insertionMo
 		}
 	case startTagToken:
 		if t.TagName == "html" {
-			elem := c.createElementForToken(t, "html", c.HTMLDocument.Node)
+			elem := c.createElementForToken(t, spec.Htmlns, c.HTMLDocument.Node)
 			c.HTMLDocument.AppendChild(elem)
 			c.stackOfOpenElements.Push(elem)
 			// handle navigation of a browsing context
@@ -1135,7 +1209,7 @@ func (c *HTMLTreeConstructor) inHeadModeHandler(t *Token) (bool, insertionMode, 
 			return c.genericRawTextElementParsingAlgorithm(t)
 		case "script":
 			il := c.getAppropriatePlaceForInsertion(nil)
-			elem := c.createElementForToken(t, "html", il.node)
+			elem := c.createElementForToken(t, spec.Htmlns, il.node)
 			elem.ParserDocument = c.HTMLDocument
 			elem.NonBlocking = false
 			il.insert(elem)
@@ -1658,6 +1732,15 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "rb", "rtc":
 		case "rp", "rt":
 		case "math":
+			c.reconstructActiveFormattingElements()
+			c.adjustMathMLAttrs(t)
+			// TODO: not really sure how namespaced attributes work here
+			//c.adjustForeignAttributes(t)
+			c.insertForeignElementForToken(t, spec.Mathmlns)
+			if t.SelfClosing {
+				c.stackOfOpenElements.Pop()
+				//TODO: ack the self-closing tag
+			}
 		case "svg":
 		case "caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr":
 			return false, inBody, generalParseError
@@ -2559,9 +2642,199 @@ func specialTokenWrongState(token *Token, nextMode insertionMode, scriptingEnabl
 	return isSpecialToken(token) && isWrongTreeState(token, nextMode, scriptingEnabled)
 }
 
-func (c *HTMLTreeConstructor) processToken(token *Token, startMode insertionMode) (bool, insertionMode) {
-	fmt.Printf("[TREE]token: %+vmode: %s\n", token, startMode)
-	reprocess, nextMode, parseErr := c.mappings[startMode](token)
+func isMathmlIntPoint(e *spec.Node) bool {
+	switch e.TagName {
+	case "mi", "mo", "mn", "ms", "mtext":
+		return true
+	}
+	return false
+}
+
+func isHTMLIntPoint(e *spec.Node) bool {
+	if e.TagName == "annotation-xml" && e.Element.NamespaceURI == spec.Mathmlns {
+		if val, ok := e.Attributes.Attrs["encoding"]; ok {
+			if val == "text/html" || val == "application/xhtml+xml" {
+				return true
+			}
+		}
+	}
+
+	if e.Element.NamespaceURI == spec.Svgns {
+		if e.TagName == "foreignObject" {
+			return true
+		}
+
+		if e.TagName == "desc" {
+			return true
+		}
+
+		if e.TagName == "title" {
+			return true
+		}
+	}
+	return false
+}
+
+var svgTable = map[string]string{
+	"fedistantlight":     "feDistantLight",
+	"fedropshadow":       "feDropShadow",
+	"feflood":            "feFlood",
+	"fefunca":            "feFuncA",
+	"fefuncb":            "feFuncB",
+	"fefuncg":            "feFuncG",
+	"fefuncr":            "feFuncR",
+	"fegaussianblur":     "feGaussianBlur",
+	"feimage":            "feImage",
+	"femerge":            "feMerge",
+	"femergenode":        "feMergeNode",
+	"femorphology":       "feMorphology",
+	"feoffset":           "feOffset",
+	"fepointlight":       "fePointLight",
+	"fespecularlighting": "feSpecularLighting",
+	"fespotlight":        "feSpotLight",
+	"fetile":             "feTile",
+	"feturbulence":       "feTurbulence",
+	"foreignobject":      "foreignObject",
+	"glyphref":           "glyphRef",
+	"lineargradient":     "linearGradient",
+	"radialgradient":     "radialGradient",
+	"textpath":           "textPath",
+}
+
+func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentEndScriptTag(t *Token, startMode insertionMode) (bool, insertionMode, parseError) {
+	c.stackOfOpenElements.Pop()
+	// insertion point
+	// parser pause flag
+	// process svg script tags
+	return false, startMode, noError
+}
+
+func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentStartTag(t *Token, startMode insertionMode) (bool, insertionMode, parseError) {
+	switch c.getAdjustedCurrentNode().Element.NamespaceURI {
+	case spec.Mathmlns:
+		c.adjustMathMLAttrs(t)
+	case spec.Svgns:
+		if val, ok := svgTable[t.TagName]; ok {
+			t.TagName = val
+		}
+
+	}
+
+	c.adjustSVGAttrs(t)
+	//TODO: c.adjustForeignAttributes
+	c.insertForeignElementForToken(t, c.getAdjustedCurrentNode().Element.NamespaceURI)
+	if t.SelfClosing {
+		// todo: acl self closing
+		return c.defaultParseTokensInForeignContentEndScriptTag(t, startMode)
+	}
+	c.stackOfOpenElements.Pop()
+	//todo: ack self closing
+	return false, startMode, noError
+}
+
+func (c *HTMLTreeConstructor) parseTokensInForeignContent(t *Token, startMode insertionMode) (bool, insertionMode, parseError) {
+	switch t.TokenType {
+	case characterToken:
+		switch t.Data {
+		case "\u0000":
+			t.Data = "\uFFFD"
+			c.insertCharacter(t)
+		case "\u0009", "\u000A", "\u000C", "\u000D", "\u0020":
+			c.insertCharacter(t)
+		default:
+			c.insertCharacter(t)
+			c.frameset = framesetNotOK
+		}
+
+		return false, startMode, noError
+	case commentToken:
+		c.insertComment(t)
+		return false, startMode, noError
+	case docTypeToken:
+		return false, startMode, generalParseError
+	case startTagToken:
+		switch t.TagName {
+		case "b", "big", "blockquote", "body", "br", "center", "code", "dd", "div",
+			"dl", "dt", "em", "embed", "h1", "h2", "h3", "h4", "h5", "h6", "head",
+			"hr", "i", "img", "li", "listing", "menu", "meta", "nobr", "ol", "p",
+			"pre", "ruby", "s", "small", "span", "strong", "strike", "sub", "sup",
+			"table", "tt", "u", "ul", "var":
+			if c.createdBy == htmlFragmentParsingAlgorithm {
+				return c.defaultParseTokensInForeignContentStartTag(t, startMode)
+			}
+			c.stackOfOpenElements.Pop()
+			c.stackOfOpenElements.PopUntilConditions([]func(e *spec.Node) bool{
+				isHTMLIntPoint,
+				isMathmlIntPoint,
+				func(e *spec.Node) bool { return e.Element != nil && e.Element.NamespaceURI == spec.Htmlns },
+			})
+			return true, startMode, generalParseError
+		case "font":
+			for k := range t.Attributes {
+				switch k {
+				case "color", "face", "size":
+					if c.createdBy == htmlFragmentParsingAlgorithm {
+						return c.defaultParseTokensInForeignContentStartTag(t, startMode)
+					}
+					c.stackOfOpenElements.Pop()
+					c.stackOfOpenElements.PopUntilConditions([]func(e *spec.Node) bool{
+						isHTMLIntPoint,
+						isMathmlIntPoint,
+						func(e *spec.Node) bool { return e.Element != nil && e.Element.NamespaceURI == spec.Htmlns },
+					})
+					return true, startMode, generalParseError
+				}
+			}
+		default:
+			return c.defaultParseTokensInForeignContentStartTag(t, startMode)
+		}
+	case endTagToken:
+		if t.TagName == "script" && c.getCurrentNode().NodeName == "svg" && c.getCurrentNode().Element.NamespaceURI == spec.Svgns {
+			return c.defaultParseTokensInForeignContentEndScriptTag(t, startMode)
+		}
+
+		err := noError
+		last := len(c.stackOfOpenElements) - 1
+		for i := last; i >= 1; i-- {
+			node := c.stackOfOpenElements[i]
+			if i != last && node.Element.NamespaceURI == spec.Htmlns {
+				return true, startMode, err
+			}
+			if strings.EqualFold(string(node.TagName), t.TagName) {
+				for {
+					popped := c.stackOfOpenElements.Pop()
+					if popped == node {
+						return false, startMode, err
+					}
+				}
+			} else {
+				if i == last {
+					err = generalParseError
+				}
+			}
+		}
+	}
+
+	return false, startMode, noError
+}
+
+func (c *HTMLTreeConstructor) dispatch(t *Token, startMode insertionMode) (bool, insertionMode, parseError) {
+	acn := c.getAdjustedCurrentNode()
+	if len(c.stackOfOpenElements) == 0 ||
+		acn.Element.NamespaceURI == spec.Htmlns ||
+		(t.TagName != "mglyph" && t.TagName != "malignmark" && t.TokenType == startTagToken && isMathmlIntPoint(acn)) ||
+		(isMathmlIntPoint(acn) && t.TokenType == characterToken) ||
+		(acn.TagName == "annotation-xml" && t.TokenType == startTagToken && t.TagName == "svg") ||
+		(isHTMLIntPoint(acn) && (t.TokenType == startTagToken || t.TokenType == characterToken)) {
+		return c.mappings[startMode](t)
+	}
+
+	return parseTokensInForeignContent(t)
+}
+
+func (c *HTMLTreeConstructor) processToken(t *Token, startMode insertionMode) (bool, insertionMode) {
+	fmt.Printf("[TREE]token: %+vmode: %s\n", t, startMode)
+	reprocess, nextMode, parseErr := c.dispatch(t, startMode)
 	fmt.Printf("[TREE]tree after: \n%s\n\n", c.HTMLDocument.Node)
 	if c.config[debug] == 0 {
 		logError(parseErr)
@@ -2569,8 +2842,8 @@ func (c *HTMLTreeConstructor) processToken(token *Token, startMode insertionMode
 	// if we didn't consume the token, we don't want to check this state
 	// only check if the token is in this special state when we are in our
 	// consuming token state
-	if !reprocess && specialTokenWrongState(token, startMode, c.scriptingEnabled) {
-		c.switchTokenizerState(token, dataState)
+	if !reprocess && specialTokenWrongState(t, startMode, c.scriptingEnabled) {
+		c.switchTokenizerState(t, dataState)
 	}
 	return reprocess, nextMode
 }

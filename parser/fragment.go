@@ -79,6 +79,7 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 	tokenizer, tokChan, stateChan, wg := NewHTMLTokenizer(input, htmlParserConfig{})
 	treeConstructor := NewHTMLTreeConstructor(tokChan, stateChan, wg)
 
+	treeConstructor.context = context
 	treeConstructor.quirksMode = quirks
 	treeConstructor.createdBy = htmlFragmentParsingAlgorithm
 	var startState tokenizerState
@@ -103,7 +104,7 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 	wg.Add(3)
 	go tokenizer.tokenizeStartState(startState)
 
-	n := spec.NewDOMElement(treeConstructor.HTMLDocument.Node, "html", "html")
+	n := spec.NewDOMElement(treeConstructor.HTMLDocument.Node, "html", spec.Htmlns)
 	n.OwnerDocument = treeConstructor.HTMLDocument.Node
 	treeConstructor.HTMLDocument.AppendChild(n)
 	treeConstructor.stackOfOpenElements.Push(n)
