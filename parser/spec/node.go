@@ -312,13 +312,14 @@ type Node struct {
 func serializeNodeType(node *Node, ident int) string {
 	switch node.NodeType {
 	case ElementNode:
-		e := "<" + string(node.NodeName)
+		e := "<"
 		switch node.Element.NamespaceURI {
 		case Svgns:
-			e += " svg"
+			e += "svg "
 		case Mathmlns:
-			e += " math"
+			e += "math "
 		}
+		e += string(node.NodeName)
 		if node.Attributes != nil && len(node.Attributes.Attrs) != 0 {
 			e += ">"
 			keys := make([]string, 0, len(node.Attributes.Attrs))

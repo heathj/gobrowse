@@ -1741,7 +1741,18 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 				c.stackOfOpenElements.Pop()
 				//TODO: ack the self-closing tag
 			}
+			return false, inBody, noError
 		case "svg":
+			c.reconstructActiveFormattingElements()
+			c.adjustSVGAttrs(t)
+			// TODO: not really sure how namespaced attributes work here
+			//c.adjustForeignAttributes(t)
+			c.insertForeignElementForToken(t, spec.Svgns)
+			if t.SelfClosing {
+				c.stackOfOpenElements.Pop()
+				//TODO: ack the self-closing
+			}
+			return false, inBody, noError
 		case "caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr":
 			return false, inBody, generalParseError
 		default:
@@ -2340,14 +2351,20 @@ func (c *HTMLTreeConstructor) inSelectModeHandler(t *Token) (bool, insertionMode
 func (c *HTMLTreeConstructor) inSelectInTableModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
 	case startTagToken:
-		c.stackOfOpenElements.PopUntil("select")
-		return true, c.resetInsertionMode(), generalParseError
-	case endTagToken:
-		if !c.stackOfOpenElements.ContainsElementInTableScope(webidl.DOMString(t.TagName)) {
-			return false, inSelectInTable, generalParseError
+		switch t.TagName {
+		case "caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th":
+			c.stackOfOpenElements.PopUntil("select")
+			return true, c.resetInsertionMode(), generalParseError
 		}
-		c.stackOfOpenElements.PopUntil("select")
-		return true, c.resetInsertionMode(), generalParseError
+	case endTagToken:
+		switch t.TagName {
+		case "caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th":
+			if !c.stackOfOpenElements.ContainsElementInTableScope(webidl.DOMString(t.TagName)) {
+				return false, inSelectInTable, generalParseError
+			}
+			c.stackOfOpenElements.PopUntil("select")
+			return true, c.resetInsertionMode(), generalParseError
+		}
 	}
 	return c.useRulesFor(t, inSelect)
 }
@@ -2497,7 +2514,7 @@ func (c *HTMLTreeConstructor) afterAfterBodyModeHandler(t *Token) (bool, inserti
 			return c.useRulesFor(t, inBody)
 		}
 	}
-	return false, inBody, generalParseError
+	return true, inBody, generalParseError
 }
 func (c *HTMLTreeConstructor) afterAfterFramesetModeHandler(t *Token) (bool, insertionMode, parseError) {
 	switch t.TokenType {
@@ -2710,7 +2727,8 @@ func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentEndScriptTag(t *
 }
 
 func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentStartTag(t *Token, startMode insertionMode) (bool, insertionMode, parseError) {
-	switch c.getAdjustedCurrentNode().Element.NamespaceURI {
+	acn := c.getAdjustedCurrentNode()
+	switch acn.Element.NamespaceURI {
 	case spec.Mathmlns:
 		c.adjustMathMLAttrs(t)
 	case spec.Svgns:
@@ -2718,16 +2736,19 @@ func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentStartTag(t *Toke
 			t.TagName = val
 		}
 
+		c.adjustSVGAttrs(t)
 	}
 
-	c.adjustSVGAttrs(t)
 	//TODO: c.adjustForeignAttributes
-	c.insertForeignElementForToken(t, c.getAdjustedCurrentNode().Element.NamespaceURI)
+	c.insertForeignElementForToken(t, acn.Element.NamespaceURI)
 	if t.SelfClosing {
-		// todo: acl self closing
-		return c.defaultParseTokensInForeignContentEndScriptTag(t, startMode)
+		if t.TagName == "script" && c.getCurrentNode().Element.NamespaceURI == spec.Svgns {
+			// todo: acl self closing
+			return c.defaultParseTokensInForeignContentEndScriptTag(t, startMode)
+		} else {
+			c.stackOfOpenElements.Pop()
+		}
 	}
-	c.stackOfOpenElements.Pop()
 	//todo: ack self closing
 	return false, startMode, noError
 }
@@ -2798,9 +2819,9 @@ func (c *HTMLTreeConstructor) parseTokensInForeignContent(t *Token, startMode in
 		for i := last; i >= 1; i-- {
 			node := c.stackOfOpenElements[i]
 			if i != last && node.Element.NamespaceURI == spec.Htmlns {
-				return true, startMode, err
+				return c.mappings[startMode](t)
 			}
-			if strings.EqualFold(string(node.TagName), t.TagName) {
+			if strings.EqualFold(string(node.NodeName), t.TagName) {
 				for {
 					popped := c.stackOfOpenElements.Pop()
 					if popped == node {
@@ -2824,12 +2845,12 @@ func (c *HTMLTreeConstructor) dispatch(t *Token, startMode insertionMode) (bool,
 		acn.Element.NamespaceURI == spec.Htmlns ||
 		(t.TagName != "mglyph" && t.TagName != "malignmark" && t.TokenType == startTagToken && isMathmlIntPoint(acn)) ||
 		(isMathmlIntPoint(acn) && t.TokenType == characterToken) ||
-		(acn.TagName == "annotation-xml" && t.TokenType == startTagToken && t.TagName == "svg") ||
+		(acn.NodeName == "annotation-xml" && t.TokenType == startTagToken && t.TagName == "svg") ||
 		(isHTMLIntPoint(acn) && (t.TokenType == startTagToken || t.TokenType == characterToken)) {
 		return c.mappings[startMode](t)
 	}
 
-	return parseTokensInForeignContent(t)
+	return c.parseTokensInForeignContent(t, startMode)
 }
 
 func (c *HTMLTreeConstructor) processToken(t *Token, startMode insertionMode) (bool, insertionMode) {
