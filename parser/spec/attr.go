@@ -1,14 +1,32 @@
 package spec
 
-import "browser/parser/webidl"
+import (
+	"browser/parser/webidl"
+)
 
 // Attr is https:domspec.whatwg.org/#attr
 type Attr struct {
-	NamespaceURI webidl.DOMString
-	Prefix       webidl.DOMString
-	LocalName    webidl.DOMString
-	Name         webidl.DOMString
-	Value        webidl.DOMString
-	OwnerElement *Element
-	Specified    bool
+	Namespace                      Namespace
+	Prefix, LocalName, Name, Value webidl.DOMString
+	OwnerElement                   *Node
+	Specified                      bool
+}
+
+func NewAttr(k string, attr *Attr, oe *Node) *Attr {
+	return &Attr{
+		Namespace:    attr.Namespace,
+		Prefix:       attr.Prefix,
+		LocalName:    attr.LocalName,
+		Name:         attr.LocalName,
+		Value:        attr.Value,
+		OwnerElement: oe,
+	}
+}
+
+func (a *Attr) QualifiedName() string {
+	if a.Prefix == "" {
+		return string(a.LocalName)
+	}
+
+	return string(a.Prefix) + ":" + string(a.LocalName)
 }

@@ -169,6 +169,37 @@ func targetInTable(name string) bool {
 	return false
 }
 
+type foreignAttrTableEntry struct {
+	prefix, localName webidl.DOMString
+	ns                spec.Namespace
+}
+
+var foreignAttrsTable = map[string]foreignAttrTableEntry{
+	"xlink:actuate": {"xlink", "actuate", spec.Xlinkns},
+	"xlink:arcrole": {"xlink", "arcrole", spec.Xlinkns},
+	"xlink:href":    {"xlink", "href", spec.Xlinkns},
+	"xlink:role":    {"xlink", "role", spec.Xlinkns},
+	"xlink:show":    {"xlink", "show", spec.Xlinkns},
+	"xlink:title":   {"xlink", "title", spec.Xlinkns},
+	"xlink:type":    {"xlink", "type", spec.Xlinkns},
+	"xml:lang":      {"xml", "lang", spec.Xmlns},
+	"xml:space":     {"xml", "space", spec.Xmlns},
+	"xmlns":         {"", "actuate", spec.Xmlnsns},
+	"xmlns:xlink":   {"xmlns", "xlink", spec.Xmlnsns},
+}
+
+func (c *HTMLTreeConstructor) adjustForeignAttributes(t *Token) {
+	for k, attr := range t.Attributes {
+		if entry, ok := foreignAttrsTable[k]; ok {
+			attr.LocalName = entry.localName
+			attr.Prefix = entry.prefix
+			attr.Namespace = entry.ns
+			t.Attributes[string(attr.LocalName)] = attr
+			delete(t.Attributes, k)
+		}
+	}
+}
+
 func (c *HTMLTreeConstructor) adjustMathMLAttrs(t *Token) {
 	if val, ok := t.Attributes["definitionurl"]; ok {
 		delete(t.Attributes, "definitionurl")
@@ -240,7 +271,7 @@ var svgAttrTable = map[string]string{
 func (c *HTMLTreeConstructor) adjustSVGAttrs(t *Token) {
 	for k := range t.Attributes {
 		if val, ok := svgAttrTable[k]; ok {
-			t.Attributes[k] = val
+			t.Attributes[k].LocalName = webidl.DOMString(val)
 		}
 	}
 }
@@ -412,10 +443,13 @@ func (c *HTMLTreeConstructor) stopParsing(err parseError) (bool, insertionMode, 
 func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns spec.Namespace, ip *spec.Node) *spec.Node {
 	document := ip.OwnerDocument
 	localName := webidl.DOMString(t.TagName)
-	is := t.Attributes["is"]
-	// won't need to implement this for a while
-	definition := c.lookUpCustomElementDefinition(document, ns, localName, webidl.DOMString(is))
+	is, ok := t.Attributes["is"]
+	var definition *CustomElementDefinition
 	executeScript := false
+	if ok {
+		// won't need to implement this for a while
+		definition = c.lookUpCustomElementDefinition(document, ns, localName, webidl.DOMString(is.Value))
+	}
 	if definition != nil && c.createdBy == htmlFragmentParsingAlgorithm {
 		executeScript = true
 	}
@@ -425,7 +459,7 @@ func (c *HTMLTreeConstructor) createElementForToken(t *Token, ns spec.Namespace,
 	}
 
 	element := spec.NewDOMElement(document, localName, ns)
-	element.Attributes = spec.NewNamedNodeMap(t.Attributes)
+	element.Attributes = spec.NewNamedNodeMap(t.Attributes, element)
 	element.ParentNode = ip.ParentNode
 	return element
 }
@@ -485,16 +519,20 @@ func compareLastN(n int, elems spec.NodeList, elem *spec.Node) bool {
 			return false
 		}
 
-		for j := 0; j < lastElem.Attributes.Length; j++ {
-			if lastElem.Attributes.Item(j).NamespaceURI != elems[i].Attributes.Item(j).NamespaceURI {
+		for k, v := range lastElem.Attributes.Attrs {
+			e := elems[i].Attributes.GetNamedItem(k)
+			if e == nil {
+				return false
+			}
+			if v.Namespace != e.Namespace {
 				return false
 			}
 
-			if lastElem.Attributes.Item(j).Name != elems[i].Attributes.Item(j).Name {
+			if v.Name != e.Name {
 				return false
 			}
 
-			if lastElem.Attributes.Item(j).Value != elems[i].Attributes.Item(j).Value {
+			if v.Value != e.Value {
 				return false
 			}
 		}
@@ -1447,8 +1485,8 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			}
 
 			for k, v := range t.Attributes {
-				if _, ok := c.stackOfOpenElements[0].Attributes.Attrs[k]; !ok {
-					c.stackOfOpenElements[0].Attributes.Attrs[k] = v
+				if attr := c.stackOfOpenElements[0].Attributes.GetNamedItem(webidl.DOMString(k)); attr == nil {
+					c.stackOfOpenElements[0].Attributes.SetNamedItem(spec.NewAttr(k, v, c.stackOfOpenElements[0]))
 				}
 			}
 			return false, inBody, generalParseError
@@ -1465,8 +1503,8 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 
 			c.frameset = framesetNotOK
 			for k, v := range t.Attributes {
-				if _, ok := c.stackOfOpenElements[1].Attributes.Attrs[k]; !ok {
-					c.stackOfOpenElements[1].Attributes.Attrs[k] = v
+				if attr := c.stackOfOpenElements[1].Attributes.GetNamedItem(webidl.DOMString(k)); attr == nil {
+					c.stackOfOpenElements[1].Attributes.SetNamedItem(spec.NewAttr(k, v, nil))
 				}
 			}
 		case "frameset":
@@ -1668,11 +1706,9 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			c.stackOfOpenElements.Pop()
 			// ack self closing
 			hasType := false
-			for key, value := range t.Attributes {
-				if key == "type" && !strings.EqualFold("hidden", value) {
-					c.frameset = framesetNotOK
-					hasType = true
-				}
+			if attr, ok := t.Attributes["type"]; ok && !strings.EqualFold("hidden", string(attr.Value)) {
+				c.frameset = framesetNotOK
+				hasType = true
 			}
 			if !hasType {
 				c.frameset = framesetNotOK
@@ -1734,8 +1770,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "math":
 			c.reconstructActiveFormattingElements()
 			c.adjustMathMLAttrs(t)
-			// TODO: not really sure how namespaced attributes work here
-			//c.adjustForeignAttributes(t)
+			c.adjustForeignAttributes(t)
 			c.insertForeignElementForToken(t, spec.Mathmlns)
 			if t.SelfClosing {
 				c.stackOfOpenElements.Pop()
@@ -1745,8 +1780,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 		case "svg":
 			c.reconstructActiveFormattingElements()
 			c.adjustSVGAttrs(t)
-			// TODO: not really sure how namespaced attributes work here
-			//c.adjustForeignAttributes(t)
+			c.adjustForeignAttributes(t)
 			c.insertForeignElementForToken(t, spec.Svgns)
 			if t.SelfClosing {
 				c.stackOfOpenElements.Pop()
@@ -1851,7 +1885,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			c.clearListOfActiveFormattingElementsToLastMarker()
 		case "br":
 			t.TokenType = startTagToken
-			t.Attributes = map[string]string{}
+			t.Attributes = map[string]*spec.Attr{}
 			return true, inBody, generalParseError
 		default:
 			err = c.defaultInBodyModeHandler(t)
@@ -1955,13 +1989,7 @@ func (c *HTMLTreeConstructor) inTableModeHandler(t *Token) (bool, insertionMode,
 		case "style", "script", "template":
 			return c.useRulesFor(t, inHead)
 		case "input":
-			var ok bool
-			var value string
-			if value, ok = t.Attributes["type"]; !ok {
-				return c.defaultInTableModeHandler(t)
-			}
-
-			if ok && !strings.EqualFold(value, "hidden") {
+			if attr, ok := t.Attributes["type"]; !ok || (ok && !strings.EqualFold(string(attr.Value), "hidden")) {
 				return c.defaultInTableModeHandler(t)
 			}
 
@@ -2670,7 +2698,7 @@ func isMathmlIntPoint(e *spec.Node) bool {
 func isHTMLIntPoint(e *spec.Node) bool {
 	if e.TagName == "annotation-xml" && e.Element.NamespaceURI == spec.Mathmlns {
 		if val, ok := e.Attributes.Attrs["encoding"]; ok {
-			if val == "text/html" || val == "application/xhtml+xml" {
+			if val.Value == "text/html" || val.Value == "application/xhtml+xml" {
 				return true
 			}
 		}
@@ -2739,7 +2767,7 @@ func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentStartTag(t *Toke
 		c.adjustSVGAttrs(t)
 	}
 
-	//TODO: c.adjustForeignAttributes
+	c.adjustForeignAttributes(t)
 	c.insertForeignElementForToken(t, acn.Element.NamespaceURI)
 	if t.SelfClosing {
 		if t.TagName == "script" && c.getCurrentNode().Element.NamespaceURI == spec.Svgns {

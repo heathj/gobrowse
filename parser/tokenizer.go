@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"browser/parser/spec"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -224,7 +225,7 @@ func (p *HTMLTokenizer) emit(tok Token) {
 		// parse error.
 		if len(tok.Attributes) > 0 {
 			logError(endTagWithAttributes)
-			tok.Attributes = make(map[string]string)
+			tok.Attributes = make(map[string]*spec.Attr)
 		}
 
 		// When an end tag token is emitted with its self-closing flag set, that is an

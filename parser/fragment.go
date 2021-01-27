@@ -2,6 +2,7 @@ package parser
 
 import (
 	"browser/parser/spec"
+	"browser/parser/webidl"
 	"sort"
 	"strings"
 )
@@ -35,11 +36,11 @@ func SerializeHTMLFragement(fragment *spec.Node) string {
 			// TODO: implementation defined, but needs to be stable
 			keys := make([]string, 0, len(child.Attributes.Attrs))
 			for name := range child.Attributes.Attrs {
-				keys = append(keys, name)
+				keys = append(keys, string(name))
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				ret += " " + k + "=" + "\"" + escapeString(child.Attributes.Attrs[k], true) + "\""
+				ret += " " + k + "=" + "\"" + escapeString(string(child.Attributes.Attrs[webidl.DOMString(k)].Value), true) + "\""
 			}
 			ret += ">"
 			ret += SerializeHTMLFragement(child) + "</" + string(child.NodeName) + ">"

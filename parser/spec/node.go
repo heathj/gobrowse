@@ -232,9 +232,10 @@ func NewComment(data webidl.DOMString, od *Node) *Node {
 
 func NewHTMLDocumentNode() *HTMLDocument {
 	return &HTMLDocument{
+
 		Node: &Node{
 			NodeType: DocumentNode,
-			Document: &Document{},
+			Document: &Document{Type: "html"},
 		},
 	}
 }
@@ -271,7 +272,7 @@ func NewDOMElement(od *Node, name webidl.DOMString, namespace Namespace, optiona
 	if len(optionals) >= 1 {
 		prefix = optionals[0]
 	}
-	return &Node{
+	n := &Node{
 		NodeType:      ElementNode,
 		NodeName:      name,
 		OwnerDocument: od,
@@ -279,10 +280,13 @@ func NewDOMElement(od *Node, name webidl.DOMString, namespace Namespace, optiona
 			NamespaceURI: namespace,
 			Prefix:       prefix,
 			LocalName:    name,
-			Attributes:   NewNamedNodeMap(map[string]string{}),
+			Attributes:   NewNamedNodeMap(map[string]*Attr{}, nil),
 			HTMLElement:  NewHTMLElement(name),
 		},
 	}
+
+	n.Attributes.AssociatedElement = n
+	return n
 }
 
 // https://dom.whatwg.org/#node
@@ -324,7 +328,7 @@ func serializeNodeType(node *Node, ident int) string {
 			e += ">"
 			keys := make([]string, 0, len(node.Attributes.Attrs))
 			for name := range node.Attributes.Attrs {
-				keys = append(keys, name)
+				keys = append(keys, string(name))
 			}
 			sort.Strings(keys)
 			spaces := "| "
@@ -332,8 +336,21 @@ func serializeNodeType(node *Node, ident int) string {
 				spaces += "  "
 			}
 			for _, name := range keys {
-				value := node.Attributes.Attrs[name]
-				e += "\n" + spaces + name + "=\"" + value + "\""
+				attr := node.Attributes.Attrs[webidl.DOMString(name)]
+				var ns string
+				switch attr.Namespace {
+				case Xmlnsns:
+					ns = "xmlns "
+				case Xmlns:
+					ns = "xml "
+				case Xlinkns:
+					ns = "xlink "
+				case Svgns:
+					ns = "svg "
+				case Mathmlns:
+					ns = "math "
+				}
+				e += "\n" + spaces + ns + name + "=\"" + string(attr.Value) + "\""
 			}
 		} else {
 			e += ">"
@@ -410,11 +427,11 @@ func (n *Node) CloneNode(deep bool) *Node {
 	copy := &Node{}
 	if n.NodeType == ElementNode {
 		copy = NewDOMElement(n, n.NodeName, n.Element.NamespaceURI, n.Element.Prefix)
-		attrs := make(map[string]string)
+		attrs := make(map[string]*Attr)
 		for k, v := range n.Attributes.Attrs {
-			attrs[k] = v
+			attrs[string(k)] = v
 		}
-		copy.Attributes = NewNamedNodeMap(attrs)
+		copy.Attributes = NewNamedNodeMap(attrs, copy)
 	} else {
 		copy.NodeType = n.NodeType
 		switch n.NodeType {
@@ -433,7 +450,7 @@ func (n *Node) CloneNode(deep bool) *Node {
 			copy.SystemID = n.SystemID
 		case AttrNode:
 			copy.Attr = &Attr{}
-			copy.Attr.NamespaceURI = n.Attr.NamespaceURI
+			copy.Attr.Namespace = n.Attr.Namespace
 			copy.Attr.Prefix = n.Attr.Prefix
 			copy.Attr.LocalName = n.Attr.LocalName
 			copy.Attr.Value = n.Attr.Value

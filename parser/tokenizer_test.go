@@ -94,8 +94,8 @@ func runTestTokenizerAttributeAccuracy(tt tokezinerAttributeAccuracyTestcase, t 
 			if _, ok := i.Attributes[k]; !ok {
 				t.Errorf("Expected to find a key of %s, didn't find one\n", k)
 			} else {
-				if v != i.Attributes[k] {
-					t.Errorf("Expected %s as the value, got %s\n", v, i.Attributes[k])
+				if v != string(i.Attributes[k].Value) {
+					t.Errorf("Expected %s as the value, got %s\n", v, i.Attributes[k].Value)
 				}
 			}
 		}

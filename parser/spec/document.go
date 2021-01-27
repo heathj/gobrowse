@@ -9,6 +9,10 @@ type Document struct {
 	CompatMode, CharacterSet, Charset, InputEncoding, ContentType webidl.DOMString
 	Doctype                                                       *Node
 	DocumentElement                                               *Element
+
+	Origin string
+	Mode   string
+	Type   string
 }
 
 // GetElementsByTagName is https:domspec.whatwg.org/#dom-document-getelementsbytagname

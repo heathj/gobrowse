@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"browser/parser/spec"
+	"browser/parser/webidl"
 	"fmt"
 	"math/big"
 	"strings"
@@ -30,7 +32,7 @@ const (
 // Token is a concrete token that is ready to be emitted.
 type Token struct {
 	TokenType        tokenType
-	Attributes       map[string]string
+	Attributes       map[string]*spec.Attr
 	TagName          string
 	PublicIdentifier string
 	SystemIdentifier string
@@ -119,7 +121,7 @@ func (a *Token) Equal(b *Token) bool {
 // TokenBuilder builds various tokens up during the tokenization
 // phase.
 type TokenBuilder struct {
-	attributes             map[string]string
+	attributes             map[string]*spec.Attr
 	attributeKey           strings.Builder
 	attributeValue         strings.Builder
 	name                   strings.Builder
@@ -136,7 +138,7 @@ type TokenBuilder struct {
 
 func newTokenBuilder() *TokenBuilder {
 	return &TokenBuilder{
-		attributes:             make(map[string]string),
+		attributes:             make(map[string]*spec.Attr),
 		characterReferenceCode: big.NewInt(0),
 	}
 }
@@ -144,7 +146,7 @@ func newTokenBuilder() *TokenBuilder {
 // NewToken clears all the builders and attributes. We don't include
 // the temp buffer here because I am not sure where I need to clear that one yet.
 func (t *TokenBuilder) NewToken() {
-	t.attributes = make(map[string]string)
+	t.attributes = make(map[string]*spec.Attr)
 	t.attributeKey.Reset()
 	t.attributeValue.Reset()
 	//default state for public and system id is "MISSING"
@@ -256,7 +258,7 @@ func (t *TokenBuilder) CommitAttribute() {
 		v := t.attributeValue.String()
 
 		if k != "" {
-			t.attributes[k] = v
+			t.attributes[k] = &spec.Attr{LocalName: webidl.DOMString(k), Value: webidl.DOMString(v), Namespace: spec.Htmlns}
 		}
 	}
 	t.attributeKey.Reset()
