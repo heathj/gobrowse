@@ -98,7 +98,7 @@ func TestTreeConstructor(t *testing.T) {
 	for _, test := range tests {
 		if test.scriptMode == scriptBoth {
 			runTreeConstructorTest(test, t, false)
-			//runTreeConstructorTest(test, t, true)
+			runTreeConstructorTest(test, t, true)
 		} else {
 			if test.scriptMode == scriptOn {
 				runTreeConstructorTest(test, t, true)
