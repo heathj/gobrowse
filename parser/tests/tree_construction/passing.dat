@@ -5214,3 +5214,492 @@ x<table><table>x
 |         xlink href="foo"
 |         xml lang="en"
 |       "bar"
+
+#data
+<!DOCTYPE html><svg></svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+
+#data
+<!DOCTYPE html><svg></svg><![CDATA[a]]>
+#errors
+(1,28) expected-dashes-or-doctype
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|     <!-- [CDATA[a]] -->
+
+#data
+<!DOCTYPE html><body><svg></svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+
+#data
+<!DOCTYPE html><body><select><svg></svg></select>
+#errors
+(1,34) unexpected-start-tag-in-select
+(1,40) unexpected-end-tag-in-select
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+
+#data
+<!DOCTYPE html><body><select><option><svg></svg></option></select>
+#errors
+(1,42) unexpected-start-tag-in-select
+(1,48) unexpected-end-tag-in-select
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <option>
+
+#data
+<!DOCTYPE html><body><table><svg></svg></table>
+#errors
+(1,33) foster-parenting-start-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|     <table>
+
+#data
+<!DOCTYPE html><body><table><svg><g>foo</g></svg></table>
+#errors
+(1,33) foster-parenting-start-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|     <table>
+
+#data
+<!DOCTYPE html><body><table><svg><g>foo</g><g>bar</g></svg></table>
+#errors
+(1,33) foster-parenting-start-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <table>
+
+#data
+<!DOCTYPE html><body><table><tbody><svg><g>foo</g><g>bar</g></svg></tbody></table>
+#errors
+(1,40) foster-parenting-start-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <table>
+|       <tbody>
+
+#data
+<!DOCTYPE html><body><table><tbody><tr><svg><g>foo</g><g>bar</g></svg></tr></tbody></table>
+#errors
+(1,44) foster-parenting-start-tag
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <table>
+|       <tbody>
+|         <tr>
+
+#data
+<!DOCTYPE html><body><table><tbody><tr><td><svg><g>foo</g><g>bar</g></svg></td></tr></tbody></table>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <svg svg>
+|               <svg g>
+|                 "foo"
+|               <svg g>
+|                 "bar"
+
+#data
+<!DOCTYPE html><body><table><tbody><tr><td><svg><g>foo</g><g>bar</g></svg><p>baz</td></tr></tbody></table>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <svg svg>
+|               <svg g>
+|                 "foo"
+|               <svg g>
+|                 "bar"
+|             <p>
+|               "baz"
+
+#data
+<!DOCTYPE html><body><table><caption><svg><g>foo</g><g>bar</g></svg><p>baz</caption></table>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         <svg svg>
+|           <svg g>
+|             "foo"
+|           <svg g>
+|             "bar"
+|         <p>
+|           "baz"
+
+#data
+<!DOCTYPE html><body><table><caption><svg><g>foo</g><g>bar</g><p>baz</table><p>quux
+#errors
+(1,65) unexpected-html-element-in-foreign-content
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         <svg svg>
+|           <svg g>
+|             "foo"
+|           <svg g>
+|             "bar"
+|         <p>
+|           "baz"
+|     <p>
+|       "quux"
+
+#data
+<!DOCTYPE html><body><table><caption><svg><g>foo</g><g>bar</g>baz</table><p>quux
+#errors
+(1,73) unexpected-end-tag
+(1,73) expected-one-end-tag-but-got-another
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         <svg svg>
+|           <svg g>
+|             "foo"
+|           <svg g>
+|             "bar"
+|           "baz"
+|     <p>
+|       "quux"
+
+#data
+<!DOCTYPE html><body><table><colgroup><svg><g>foo</g><g>bar</g><p>baz</table><p>quux
+#errors
+(1,43) foster-parenting-start-tag svg
+(1,66) unexpected HTML-like start tag token in foreign content
+(1,66) foster-parenting-start-tag
+(1,67) foster-parenting-character
+(1,68) foster-parenting-character
+(1,69) foster-parenting-character
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <p>
+|       "baz"
+|     <table>
+|       <colgroup>
+|     <p>
+|       "quux"
+
+#data
+<!DOCTYPE html><body><table><tr><td><select><svg><g>foo</g><g>bar</g><p>baz</table><p>quux
+#errors
+(1,49) unexpected-start-tag-in-select
+(1,52) unexpected-start-tag-in-select
+(1,59) unexpected-end-tag-in-select
+(1,62) unexpected-start-tag-in-select
+(1,69) unexpected-end-tag-in-select
+(1,72) unexpected-start-tag-in-select
+(1,83) unexpected-table-element-end-tag-in-select-in-table
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <select>
+|               "foobarbaz"
+|     <p>
+|       "quux"
+
+#data
+<!DOCTYPE html><body><table><select><svg><g>foo</g><g>bar</g><p>baz</table><p>quux
+#errors
+(1,36) unexpected-start-tag-implies-table-voodoo
+(1,41) unexpected-start-tag-in-select
+(1,44) unexpected-start-tag-in-select
+(1,51) unexpected-end-tag-in-select
+(1,54) unexpected-start-tag-in-select
+(1,61) unexpected-end-tag-in-select
+(1,64) unexpected-start-tag-in-select
+(1,75) unexpected-table-element-end-tag-in-select-in-table
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       "foobarbaz"
+|     <table>
+|     <p>
+|       "quux"
+
+#data
+<!DOCTYPE html><body></body></html><svg><g>foo</g><g>bar</g><p>baz
+#errors
+(1,40) expected-eof-but-got-start-tag
+(1,63) unexpected-html-element-in-foreign-content
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <p>
+|       "baz"
+
+#data
+<!DOCTYPE html><body></body><svg><g>foo</g><g>bar</g><p>baz
+#errors
+(1,33) unexpected-start-tag-after-body
+(1,56) unexpected-html-element-in-foreign-content
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <p>
+|       "baz"
+
+#data
+<!DOCTYPE html><frameset><svg><g></g><g></g><p><span>
+#errors
+(1,30) unexpected-start-tag-in-frameset
+(1,33) unexpected-start-tag-in-frameset
+(1,37) unexpected-end-tag-in-frameset
+(1,40) unexpected-start-tag-in-frameset
+(1,44) unexpected-end-tag-in-frameset
+(1,47) unexpected-start-tag-in-frameset
+(1,53) unexpected-start-tag-in-frameset
+(1,53) eof-in-frameset
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+
+#data
+<!DOCTYPE html><frameset></frameset><svg><g></g><g></g><p><span>
+#errors
+(1,41) unexpected-start-tag-after-frameset
+(1,44) unexpected-start-tag-after-frameset
+(1,48) unexpected-end-tag-after-frameset
+(1,51) unexpected-start-tag-after-frameset
+(1,55) unexpected-end-tag-after-frameset
+(1,58) unexpected-start-tag-after-frameset
+(1,64) unexpected-start-tag-after-frameset
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+
+#data
+<!DOCTYPE html><body xlink:href=foo><svg xlink:href=foo></svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     xlink:href="foo"
+|     <svg svg>
+|       xlink href="foo"
+
+#data
+<!DOCTYPE html><body xlink:href=foo xml:lang=en><svg><g xml:lang=en xlink:href=foo></g></svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     xlink:href="foo"
+|     xml:lang="en"
+|     <svg svg>
+|       <svg g>
+|         xlink href="foo"
+|         xml lang="en"
+
+#data
+<!DOCTYPE html><body xlink:href=foo xml:lang=en><svg><g xml:lang=en xlink:href=foo /></svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     xlink:href="foo"
+|     xml:lang="en"
+|     <svg svg>
+|       <svg g>
+|         xlink href="foo"
+|         xml lang="en"
+
+#data
+<!DOCTYPE html><body xlink:href=foo xml:lang=en><svg><g xml:lang=en xlink:href=foo />bar</svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     xlink:href="foo"
+|     xml:lang="en"
+|     <svg svg>
+|       <svg g>
+|         xlink href="foo"
+|         xml lang="en"
+|       "bar"
+
+#data
+<svg></path>
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,12) unexpected-end-tag
+(1,12) unexpected-end-tag
+(1,12) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+
+#data
+<div><svg></div>a
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,16) unexpected-end-tag
+(1,16) end-tag-too-early
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|     "a"
+
+#data
+<div><svg><path></div>a
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,22) unexpected-end-tag
+(1,22) end-tag-too-early
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|         <svg path>
+|     "a"
+
+#data
+<div><svg><path></svg><path>
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,22) unexpected-end-tag
+(1,28) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|         <svg path>
+|       <path>
+

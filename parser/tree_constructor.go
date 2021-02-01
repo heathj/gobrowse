@@ -2705,15 +2705,15 @@ func isHTMLIntPoint(e *spec.Node) bool {
 	}
 
 	if e.Element.NamespaceURI == spec.Svgns {
-		if e.TagName == "foreignObject" {
+		if e.NodeName == "foreignObject" {
 			return true
 		}
 
-		if e.TagName == "desc" {
+		if e.NodeName == "desc" {
 			return true
 		}
 
-		if e.TagName == "title" {
+		if e.NodeName == "title" {
 			return true
 		}
 	}
@@ -2871,7 +2871,7 @@ func (c *HTMLTreeConstructor) dispatch(t *Token, startMode insertionMode) (bool,
 	acn := c.getAdjustedCurrentNode()
 	if len(c.stackOfOpenElements) == 0 ||
 		acn.Element.NamespaceURI == spec.Htmlns ||
-		(t.TagName != "mglyph" && t.TagName != "malignmark" && t.TokenType == startTagToken && isMathmlIntPoint(acn)) ||
+		(isMathmlIntPoint(acn) && t.TokenType == startTagToken && t.TagName != "mglyph" && t.TagName != "malignmark") ||
 		(isMathmlIntPoint(acn) && t.TokenType == characterToken) ||
 		(acn.NodeName == "annotation-xml" && t.TokenType == startTagToken && t.TagName == "svg") ||
 		(isHTMLIntPoint(acn) && (t.TokenType == startTagToken || t.TokenType == characterToken)) {
