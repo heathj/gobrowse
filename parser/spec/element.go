@@ -21,10 +21,10 @@ type HTMLCollection []*Element
 // Element is an individual HTML element that gets added to the spec\.
 // https:domspec.whatwg.org/#interface-element
 type Element struct {
-	NamespaceURI                                    Namespace
-	Prefix, LocalName, TagName, Id, ClassName, Slot webidl.DOMString
-	ClassList                                       DOMTokenList
-	Attributes                                      *NamedNodeMap
+	NamespaceURI                           Namespace
+	Prefix, LocalName, Id, ClassName, Slot webidl.DOMString
+	ClassList                              DOMTokenList
+	Attributes                             *NamedNodeMap
 
 	*HTMLElement
 }

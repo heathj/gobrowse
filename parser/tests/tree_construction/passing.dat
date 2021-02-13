@@ -5703,3 +5703,344 @@ x<table><table>x
 |         <svg path>
 |       <path>
 
+#data
+<div><svg><path><foreignObject><p></div>a
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,40) end-tag-too-early
+(1,41) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|         <svg path>
+|           <svg foreignObject>
+|             <p>
+|               "a"
+
+#data
+<!DOCTYPE html><svg><desc><div><svg><ul>a
+#errors
+(1,40) unexpected-html-element-in-foreign-content
+(1,41) expected-closing-tag-but-got-eof
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg desc>
+|         <div>
+|           <svg svg>
+|           <ul>
+|             "a"
+
+#data
+<!DOCTYPE html><svg><desc><svg><ul>a
+#errors
+(1,35) unexpected-html-element-in-foreign-content
+(1,36) expected-closing-tag-but-got-eof
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg desc>
+|         <svg svg>
+|         <ul>
+|           "a"
+
+#data
+<!DOCTYPE html><p><svg><desc><p>
+#errors
+(1,32) expected-closing-tag-but-got-eof
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       <svg svg>
+|         <svg desc>
+|           <p>
+
+#data
+<!DOCTYPE html><p><svg><title><p>
+#errors
+(1,33) expected-closing-tag-but-got-eof
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       <svg svg>
+|         <svg title>
+|           <p>
+
+#data
+<div><svg><path><foreignObject><p></foreignObject><p>
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,50) unexpected-end-tag
+(1,53) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|         <svg path>
+|           <svg foreignObject>
+|             <p>
+|             <p>
+
+#data
+<math><mi><div><object><div><span></span></div></object></div></mi><mi>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,71) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         <div>
+|           <object>
+|             <div>
+|               <span>
+|       <math mi>
+
+#data
+<math><mi><svg><foreignObject><div><div></div></div></foreignObject></svg></mi><mi>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,83) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         <svg svg>
+|           <svg foreignObject>
+|             <div>
+|               <div>
+|       <math mi>
+
+#data
+<svg><script></script><path>
+#errors
+(1,5) expected-doctype-but-got-start-tag
+(1,28) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg script>
+|       <svg path>
+
+#data
+<table><svg></svg><tr>
+#errors
+(1,7) expected-doctype-but-got-start-tag
+(1,12) unexpected-start-tag-implies-table-voodoo
+(1,22) eof-in-table
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|     <table>
+|       <tbody>
+|         <tr>
+
+#data
+<math><mi><mglyph>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,18) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         <math mglyph>
+
+#data
+<math><mi><malignmark>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,22) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         <math malignmark>
+
+#data
+<math><mo><mglyph>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,18) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mo>
+|         <math mglyph>
+
+#data
+<math><mo><malignmark>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,22) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mo>
+|         <math malignmark>
+
+#data
+<math><mn><mglyph>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,18) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mn>
+|         <math mglyph>
+
+#data
+<math><mn><malignmark>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,22) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mn>
+|         <math malignmark>
+
+#data
+<math><ms><mglyph>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,18) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math ms>
+|         <math mglyph>
+
+#data
+<math><ms><malignmark>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,22) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math ms>
+|         <math malignmark>
+
+#data
+<math><mtext><mglyph>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,21) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mtext>
+|         <math mglyph>
+
+#data
+<math><mtext><malignmark>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,25) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mtext>
+|         <math malignmark>
+
+#data
+<math><annotation-xml><svg></svg></annotation-xml><mi>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,54) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math annotation-xml>
+|         <svg svg>
+|       <math mi>
+
+#data
+<math><annotation-xml><svg><foreignObject><div><math><mi></mi></math><span></span></div></foreignObject><path></path></svg></annotation-xml><mi>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,144) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math annotation-xml>
+|         <svg svg>
+|           <svg foreignObject>
+|             <div>
+|               <math math>
+|                 <math mi>
+|               <span>
+|           <svg path>
+|       <math mi>
+
+#data
+<math><annotation-xml><svg><foreignObject><math><mi><svg></svg></mi><mo></mo></math><span></span></foreignObject><path></path></svg></annotation-xml><mi>
+#errors
+(1,6) expected-doctype-but-got-start-tag
+(1,153) expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math annotation-xml>
+|         <svg svg>
+|           <svg foreignObject>
+|             <math math>
+|               <math mi>
+|                 <svg svg>
+|               <math mo>
+|             <span>
+|           <svg path>
+|       <math mi>

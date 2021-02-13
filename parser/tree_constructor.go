@@ -507,7 +507,7 @@ func compareLastN(n int, elems spec.NodeList, elem *spec.Node) bool {
 	last := len(elems) - 1
 	lastElem := elems[last]
 	for i := last - 1; i >= last-n; i-- {
-		if elems[i].TagName != lastElem.TagName {
+		if elems[i].NodeName != lastElem.NodeName {
 			return false
 		}
 
@@ -1427,7 +1427,7 @@ func (c *HTMLTreeConstructor) stackOfOpenElementsParseErrorCheck() parseError {
 		"html",
 	}
 	for _, s := range c.stackOfOpenElements {
-		if !containedIn(s.TagName, ls) {
+		if !containedIn(s.NodeName, ls) {
 			return generalParseError
 		}
 	}
@@ -2688,7 +2688,7 @@ func specialTokenWrongState(token *Token, nextMode insertionMode, scriptingEnabl
 }
 
 func isMathmlIntPoint(e *spec.Node) bool {
-	switch e.TagName {
+	switch e.NodeName {
 	case "mi", "mo", "mn", "ms", "mtext":
 		return true
 	}
@@ -2696,7 +2696,7 @@ func isMathmlIntPoint(e *spec.Node) bool {
 }
 
 func isHTMLIntPoint(e *spec.Node) bool {
-	if e.TagName == "annotation-xml" && e.Element.NamespaceURI == spec.Mathmlns {
+	if e.NodeName == "annotation-xml" && e.Element.NamespaceURI == spec.Mathmlns {
 		if val, ok := e.Attributes.Attrs["encoding"]; ok {
 			if val.Value == "text/html" || val.Value == "application/xhtml+xml" {
 				return true
