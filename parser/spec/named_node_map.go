@@ -1,8 +1,9 @@
 package spec
 
 import (
-	"browser/parser/webidl"
 	"strings"
+
+	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 func NewNamedNodeMap(attrs map[string]*Attr, oe *Node) *NamedNodeMap {

@@ -1,10 +1,12 @@
 package parser
 
 import (
-	"browser/parser/spec"
-	"browser/parser/webidl"
 	"sort"
 	"strings"
+
+	"github.com/heathj/gobrowse/parser/webidl"
+
+	"github.com/heathj/gobrowse/parser/spec"
 )
 
 // https://html.spec.whatwg.org/#escapingString

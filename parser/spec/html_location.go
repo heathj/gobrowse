@@ -1,6 +1,6 @@
 package spec
 
-import "browser/parser/webidl"
+import "github.com/heathj/gobrowse/parser/webidl"
 
 type DOMStringList []webidl.DOMString
 type HTMLLocation struct {

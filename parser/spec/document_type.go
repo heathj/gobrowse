@@ -1,6 +1,6 @@
 package spec
 
-import "browser/parser/webidl"
+import "github.com/heathj/gobrowse/parser/webidl"
 
 // DocumentType is https:domspec.whatwg.org/#documenttype
 type DocumentType struct {

@@ -1,11 +1,12 @@
 package parser
 
 import (
-	"browser/parser/spec"
-	"browser/parser/webidl"
 	"fmt"
 	"math/big"
 	"strings"
+
+	"github.com/heathj/gobrowse/parser/spec"
+	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 //go:generate stringer -type=tokenType

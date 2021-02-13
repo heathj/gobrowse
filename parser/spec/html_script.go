@@ -1,6 +1,6 @@
 package spec
 
-import "browser/parser/webidl"
+import "github.com/heathj/gobrowse/parser/webidl"
 
 type HTMLScript struct {
 	Src                                                             webidl.USVString

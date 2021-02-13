@@ -1,12 +1,13 @@
 package parser
 
 import (
-	"browser/parser/spec"
-	"browser/parser/webidl"
 	"fmt"
 	de "runtime/debug"
 	"strings"
 	"sync"
+
+	"github.com/heathj/gobrowse/parser/spec"
+	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 type quirksMode uint
@@ -214,7 +215,7 @@ var svgAttrTable = map[string]string{
 	"baseprofile":         "baseProfile",
 	"calcmode":            "calcMode",
 	"clippathunits":       "clipPathUnits",
-	"diffuseconstant":     "diffuseConstant`",
+	"diffuseconstant":     "diffuseConstant",
 	"edgemode":            "edgeMode",
 	"filterunits":         "filterUnits",
 	"glyphref":            "glyphRef",
@@ -271,7 +272,9 @@ var svgAttrTable = map[string]string{
 func (c *HTMLTreeConstructor) adjustSVGAttrs(t *Token) {
 	for k := range t.Attributes {
 		if val, ok := svgAttrTable[k]; ok {
-			t.Attributes[k].LocalName = webidl.DOMString(val)
+			t.Attributes[val] = t.Attributes[k]
+			t.Attributes[val].LocalName = webidl.DOMString(val)
+			delete(t.Attributes, k)
 		}
 	}
 }
@@ -2721,29 +2724,43 @@ func isHTMLIntPoint(e *spec.Node) bool {
 }
 
 var svgTable = map[string]string{
-	"fedistantlight":     "feDistantLight",
-	"fedropshadow":       "feDropShadow",
-	"feflood":            "feFlood",
-	"fefunca":            "feFuncA",
-	"fefuncb":            "feFuncB",
-	"fefuncg":            "feFuncG",
-	"fefuncr":            "feFuncR",
-	"fegaussianblur":     "feGaussianBlur",
-	"feimage":            "feImage",
-	"femerge":            "feMerge",
-	"femergenode":        "feMergeNode",
-	"femorphology":       "feMorphology",
-	"feoffset":           "feOffset",
-	"fepointlight":       "fePointLight",
-	"fespecularlighting": "feSpecularLighting",
-	"fespotlight":        "feSpotLight",
-	"fetile":             "feTile",
-	"feturbulence":       "feTurbulence",
-	"foreignobject":      "foreignObject",
-	"glyphref":           "glyphRef",
-	"lineargradient":     "linearGradient",
-	"radialgradient":     "radialGradient",
-	"textpath":           "textPath",
+	"altglyph":            "altGlyph",
+	"altglyphdef":         "altGlyphDef",
+	"altglyphitem":        "altGlyphItem",
+	"animatecolor":        "animateColor",
+	"animatemotion":       "animateMotion",
+	"animatetransform":    "animateTransform",
+	"clippath":            "clipPath",
+	"feblend":             "feBlend",
+	"fecolormatrix":       "feColorMatrix",
+	"fecomponenttransfer": "feComponentTransfer",
+	"fecomposite":         "feComposite",
+	"feconvolvematrix":    "feConvolveMatrix",
+	"fediffuselighting":   "feDiffuseLighting",
+	"fedisplacementmap":   "feDisplacementMap",
+	"fedistantlight":      "feDistantLight",
+	"fedropshadow":        "feDropShadow",
+	"feflood":             "feFlood",
+	"fefunca":             "feFuncA",
+	"fefuncb":             "feFuncB",
+	"fefuncg":             "feFuncG",
+	"fefuncr":             "feFuncR",
+	"fegaussianblur":      "feGaussianBlur",
+	"feimage":             "feImage",
+	"femerge":             "feMerge",
+	"femergenode":         "feMergeNode",
+	"femorphology":        "feMorphology",
+	"feoffset":            "feOffset",
+	"fepointlight":        "fePointLight",
+	"fespecularlighting":  "feSpecularLighting",
+	"fespotlight":         "feSpotLight",
+	"fetile":              "feTile",
+	"feturbulence":        "feTurbulence",
+	"foreignobject":       "foreignObject",
+	"glyphref":            "glyphRef",
+	"lineargradient":      "linearGradient",
+	"radialgradient":      "radialGradient",
+	"textpath":            "textPath",
 }
 
 func (c *HTMLTreeConstructor) defaultParseTokensInForeignContentEndScriptTag(t *Token, startMode insertionMode) (bool, insertionMode, parseError) {

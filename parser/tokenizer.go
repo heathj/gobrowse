@@ -1,13 +1,14 @@
 package parser
 
 import (
-	"browser/parser/spec"
 	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
+
+	"github.com/heathj/gobrowse/parser/spec"
 )
 
 type htmlParserConfigKey uint
@@ -957,8 +958,7 @@ func (p *HTMLTokenizer) attributeNameStateParser(r rune) (bool, tokenizerState, 
 		}
 		return false, beforeAttributeValueState, noError
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		r += 0x20
-		p.tokenBuilder.WriteAttributeName(r)
+		p.tokenBuilder.WriteAttributeName(r + 0x20)
 		return false, attributeNameState, noError
 	case '\u0000':
 		p.tokenBuilder.WriteAttributeName('\uFFFD')
@@ -2332,7 +2332,7 @@ func (p *HTMLTokenizer) tokenizeEOF(nextState tokenizerState) {
 }
 
 func (p *HTMLTokenizer) processRune(r rune, nextState tokenizerState) (bool, tokenizerState) {
-	fmt.Printf("[TOKEN]rune: %+vmode: %s\n", r, nextState)
+	fmt.Printf("[TOKEN]rune: %s , mode: %s\n", string(r), nextState)
 	reconsume, nextState, parseErr := p.mappings[nextState](r)
 	if p.config[debug] == 1 {
 		logError(parseErr)

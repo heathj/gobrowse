@@ -1,6 +1,6 @@
 package spec
 
-import "browser/parser/webidl"
+import "github.com/heathj/gobrowse/parser/webidl"
 
 // CharacterData is https:domspec.whatwg.org/#characterdata
 type CharacterData struct {

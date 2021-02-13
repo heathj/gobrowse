@@ -1,7 +1,7 @@
 package spec
 
 import (
-	"browser/parser/webidl"
+	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 type Namespace uint

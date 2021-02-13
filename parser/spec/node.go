@@ -1,9 +1,10 @@
 package spec
 
 import (
-	"browser/parser/webidl"
 	"fmt"
 	"sort"
+
+	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 func (h *NodeList) Contains(n *Node) int {

@@ -1,12 +1,13 @@
 package parser
 
 import (
-	"browser/parser/spec"
-	"browser/parser/webidl"
 	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/heathj/gobrowse/parser/spec"
+	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 type docFramementTest struct {
@@ -53,7 +54,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
