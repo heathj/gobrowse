@@ -1,10 +1,20 @@
 #data
-<!DOCTYPE html><body><svg><solidColor /></svg>
+<!DOCTYPE html><p><b><i><u></p> <p>X
 #errors
+(1,31): unexpected-end-tag
+(1,36): expected-closing-tag-but-got-eof
 #document
 | <!DOCTYPE html>
 | <html>
 |   <head>
 |   <body>
-|     <svg svg>
-|       <svg solidcolor>
+|     <p>
+|       <b>
+|         <i>
+|           <u>
+|     <b>
+|       <i>
+|         <u>
+|           " "
+|           <p>
+|             "X"

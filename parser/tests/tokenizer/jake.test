@@ -1,6 +1,9 @@
-{"tests": [
-{"description":"plaintext element",
- "input":"<plaintext>foobar",
- "output":[["StartTag","plaintext",{}], ["Character","foobar"]]}
-]}
-
+{
+    "tests": [
+        {
+        "description":"Start Tag w/attribute no quotes",
+        "input":"<h a=b>",
+        "output":[["StartTag", "h", {"a":"b"}]]
+    }
+    ]
+}

@@ -98,7 +98,7 @@ func (a *Token) Equal(b *Token) bool {
 				return false
 			}
 
-			if a.Attributes[k] != b.Attributes[k] {
+			if a.Attributes[k].Value != b.Attributes[k].Value {
 				return false
 			}
 		}
