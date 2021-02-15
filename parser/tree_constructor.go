@@ -322,10 +322,9 @@ func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertion(target *spec.Node)
 			c.stackOfOpenElements[lastTable-1].AppendChild(n)
 		}
 		return ail
-	} else {
-		ail.node = target
-		ail.insert = func(n *spec.Node) { target.AppendChild(n) }
 	}
+	ail.node = target
+	ail.insert = func(n *spec.Node) { target.AppendChild(n) }
 
 	return ail
 }
@@ -824,6 +823,28 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 
 	// 4. Rewind: If there are no entries before entry in the list of active formatting elements,
 	// then jump to the step labeled create.
+	// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
+	for ; i >= 0; i-- {
+		if i == 0 {
+			break
+		}
+		// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
+		// go to the step labeled rewind.
+		doesContain = c.stackOfOpenElements.Contains(c.activeFormattingElements[i])
+		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
+			i++
+			break
+		}
+	}
+
+	// 7. Advance: Let entry be the element one later than entry in the list of active formatting
+	// elements.
+	for ; i < len(c.activeFormattingElements); i++ {
+		c.racfeCreateStep(i)
+	}
+
+	/*old:// 4. Rewind: If there are no entries before entry in the list of active formatting elements,
+	// then jump to the step labeled create.
 	if i == 0 {
 		c.racfeCreateStep(i)
 	} else {
@@ -842,7 +863,7 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	// elements.
 	for j := i + 1; j < len(c.activeFormattingElements); j++ {
 		c.racfeCreateStep(j)
-	}
+	}*/
 
 }
 
@@ -1807,6 +1828,11 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 
 			return false, afterBody, c.stackOfOpenElementsParseErrorCheck()
 		case "html":
+			if !c.stackOfOpenElements.ContainsElementInScope("body") {
+				return false, inBody, generalParseError
+			}
+
+			return true, afterBody, c.stackOfOpenElementsParseErrorCheck()
 		case "address", "article", "aside", "blockquote", "button", "center", "details", "dialog",
 			"dir", "div", "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup",
 			"listing", "main", "menu", "nav", "ol", "pre", "section", "summary", "ul":
@@ -2535,6 +2561,7 @@ func (c *HTMLTreeConstructor) afterAfterBodyModeHandler(t *Token) (bool, inserti
 			},
 		}
 		c.insertCommentAt(t, il)
+		return false, afterAfterBody, noError
 	case docTypeToken:
 		return c.useRulesFor(t, inBody)
 	case endOfFileToken:
