@@ -388,7 +388,7 @@ func serializeNodeType(node *Node, ident int) string {
 	case ProcessingInstructionNode:
 		return "<?" + string(node.ProcessingInstruction.CharacterData.Data) + ">"
 	default:
-		fmt.Printf("Error serializing node: %+v\n", node)
+		fmt.Printf("Error serializing node: %+v\n", node.NodeType)
 		return ""
 	}
 

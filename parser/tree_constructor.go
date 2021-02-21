@@ -825,14 +825,15 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	// then jump to the step labeled create.
 	// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
 	for ; i >= 0; i-- {
-		if i == 0 {
-			break
-		}
 		// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
 		// go to the step labeled rewind.
 		doesContain = c.stackOfOpenElements.Contains(c.activeFormattingElements[i])
 		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
 			i++
+			break
+		}
+
+		if i == 0 {
 			break
 		}
 	}
