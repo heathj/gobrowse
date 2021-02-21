@@ -829,34 +829,7 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 		// go to the step labeled rewind.
 		doesContain = c.stackOfOpenElements.Contains(c.activeFormattingElements[i])
 		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
-			i++
 			break
-		}
-
-		if i == 0 {
-			break
-		}
-	}
-
-	// 7. Advance: Let entry be the element one later than entry in the list of active formatting
-	// elements.
-	for ; i < len(c.activeFormattingElements); i++ {
-		c.racfeCreateStep(i)
-	}
-
-	/*old:// 4. Rewind: If there are no entries before entry in the list of active formatting elements,
-	// then jump to the step labeled create.
-	if i == 0 {
-		c.racfeCreateStep(i)
-	} else {
-		// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
-		for ; i > 0; i-- {
-			// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
-			// go to the step labeled rewind.
-			doesContain = c.stackOfOpenElements.Contains(c.activeFormattingElements[i])
-			if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
-				break
-			}
 		}
 	}
 
@@ -864,8 +837,7 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	// elements.
 	for j := i + 1; j < len(c.activeFormattingElements); j++ {
 		c.racfeCreateStep(j)
-	}*/
-
+	}
 }
 
 func (c *HTMLTreeConstructor) clearStackBackToTable() {
