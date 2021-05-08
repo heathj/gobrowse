@@ -2723,7 +2723,7 @@ func isMathmlIntPoint(e *spec.Node) bool {
 func isHTMLIntPoint(e *spec.Node) bool {
 	if e.NodeName == "annotation-xml" && e.Element.NamespaceURI == spec.Mathmlns {
 		if val, ok := e.Attributes.Attrs["encoding"]; ok {
-			if val.Value == "text/html" || val.Value == "application/xhtml+xml" {
+			if strings.EqualFold(string(val.Value), "text/html") || strings.EqualFold(string(val.Value), "application/xhtml+xml") {
 				return true
 			}
 		}
