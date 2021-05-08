@@ -149,6 +149,16 @@ func (c *NodeList) ContainsElementInSpecificScope(target webidl.DOMString, list 
 	return false
 }
 
+func (c *NodeList) ContainsElementsInScope(elems []webidl.DOMString) bool {
+	for _, elem := range elems {
+		if c.ContainsElementInScope(elem) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *NodeList) ContainsElementInScope(target webidl.DOMString) bool {
 	return c.ContainsElementInSpecificScope(target, elementInScopeList)
 }

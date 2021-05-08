@@ -584,7 +584,7 @@ func (c *HTMLTreeConstructor) generateImpliedEndTags(blacklist []webidl.DOMStrin
 	for {
 		nn := c.getCurrentNode().NodeName
 		switch nn {
-		case "dd", "dt", "li", "optgroup", "option", "p", "rb", "rt", "rtc":
+		case "dd", "dt", "li", "optgroup", "option", "p", "rb", "rp", "rt", "rtc":
 			for _, b := range blacklist {
 				if b == nn {
 					return
@@ -1630,7 +1630,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			c.insertHTMLElementForToken(t)
 			return false, inBody, err
 		case "plaintext":
-			if c.stackOfOpenElements.ContainsElementInButtonScope("button") {
+			if c.stackOfOpenElements.ContainsElementInButtonScope("p") {
 				c.closePElement()
 			}
 			c.insertHTMLElementForToken(t)
@@ -1763,7 +1763,15 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			c.reconstructActiveFormattingElements()
 			c.insertHTMLElementForToken(t)
 		case "rb", "rtc":
+			if c.stackOfOpenElements.ContainsElementInScope("ruby") {
+				c.generateImpliedEndTags([]webidl.DOMString{})
+			}
+			c.insertHTMLElementForToken(t)
 		case "rp", "rt":
+			if c.stackOfOpenElements.ContainsElementInScope("ruby") {
+				c.generateImpliedEndTags([]webidl.DOMString{"rtc"})
+			}
+			c.insertHTMLElementForToken(t)
 		case "math":
 			c.reconstructActiveFormattingElements()
 			c.adjustMathMLAttrs(t)
@@ -1794,6 +1802,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 	case endTagToken:
 		switch t.TagName {
 		case "template":
+			return c.useRulesFor(t, inHead)
 		case "body":
 			if !c.stackOfOpenElements.ContainsElementInScope("body") {
 				return false, inBody, generalParseError
@@ -1865,8 +1874,21 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t *Token) (bool, insertionMode, 
 			}
 			c.stackOfOpenElements.PopUntil("li")
 		case "dd", "dt":
+			if !c.stackOfOpenElements.ContainsElementInScope(webidl.DOMString(t.TagName)) {
+				return false, inBody, generalParseError
+			}
+			c.generateImpliedEndTags([]webidl.DOMString{webidl.DOMString(t.TagName)})
+			c.stackOfOpenElements.PopUntil(webidl.DOMString(t.TagName))
 		case "h1", "h2", "h3", "h4", "h5", "h6":
+			headers := []webidl.DOMString{"h1", "h2", "h3", "h4", "h5", "h6"}
+			if !c.stackOfOpenElements.ContainsElementsInScope(headers) {
+				return false, inBody, generalParseError
+			}
+			c.generateImpliedEndTags([]webidl.DOMString{})
+			c.stackOfOpenElements.PopUntilMany(headers)
 		case "sarcasm":
+			//Take a deep breath, then act as described in the "any other end tag" entry below.
+			err = c.defaultInBodyModeHandler(t)
 		case "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong",
 			"tt", "u":
 			var shouldDefault bool
