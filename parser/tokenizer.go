@@ -6,148 +6,200 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 
 	"github.com/heathj/gobrowse/parser/spec"
 )
 
-type htmlParserConfigKey uint
-type htmlParserConfig map[htmlParserConfigKey]int
-
-const (
-	debug = iota
-	scripting
-)
-
 // HTMLTokenizer holds state for the various state of the tokenizer.
 type HTMLTokenizer struct {
-	eof                     bool
-	config                  htmlParserConfig
+	done                    bool
 	returnState             tokenizerState
-	htmlReader              *bufio.Reader
-	tokenChannel            chan *Token
-	stateChannel            chan tokenizerState
-	wg                      sync.WaitGroup
-	mappings                map[tokenizerState]parserStateHandler
+	inputStream             *bufio.Reader
+	currentState            tokenizerState
+	adjustedCurrentNode     *spec.Node
+	emittedTokens           []*Token
 	tokenBuilder            *TokenBuilder
 	lastEmittedStartTagName string
 }
 
 // NewHTMLTokenizer creates an HTML parser that can be used to process
 // an HTML string.
-func NewHTMLTokenizer(htmlStr string, config htmlParserConfig) (*HTMLTokenizer, chan *Token, chan tokenizerState, *sync.WaitGroup) {
-	tokenChannel := make(chan *Token, 10)
-	stateChannel := make(chan tokenizerState, 5)
-	p := &HTMLTokenizer{
-		returnState:  dataState,
-		config:       config,
-		htmlReader:   bufio.NewReader(strings.NewReader(htmlStr)),
-		stateChannel: stateChannel,
-		tokenChannel: tokenChannel,
-		tokenBuilder: newTokenBuilder(),
-	}
-
-	createMappings(p)
-
-	return p, tokenChannel, stateChannel, &p.wg
-}
-
-func createMappings(p *HTMLTokenizer) {
-
-	// doing the mappings like this allows us to not have to use nested recursion when following the
-	// state machine and also makes testing individual states simpler.
-	p.mappings = map[tokenizerState]parserStateHandler{
-		dataState:                                     p.dataStateParser,
-		rcDataState:                                   p.rcDataStateParser,
-		rawTextState:                                  p.rawTextStateParser,
-		scriptDataState:                               p.scriptDataStateParser,
-		plaintextState:                                p.plaintextStateParser,
-		tagOpenState:                                  p.tagOpenStateParser,
-		endTagOpenState:                               p.endTagOpenStateParser,
-		tagNameState:                                  p.tagNameStateParser,
-		rcDataLessThanSignState:                       p.rcDataLessThanSignStateParser,
-		rcDataEndTagOpenState:                         p.rcDataEndTagOpenStateParser,
-		rcDataEndTagNameState:                         p.rcDataEndTagNameStateParser,
-		rawTextLessThanSignState:                      p.rawTextLessThanSignStateParser,
-		rawTextEndTagOpenState:                        p.rawTextEndTagOpenStateParser,
-		rawTextEndTagNameState:                        p.rawTextEndTagNameStateParser,
-		scriptDataLessThanSignState:                   p.scriptDataLessThanSignStateParser,
-		scriptDataEndTagOpenState:                     p.scriptDataEndTagOpenStateParser,
-		scriptDataEndTagNameState:                     p.scriptDataEndTagNameStateParser,
-		scriptDataEscapeStartState:                    p.scriptDataEscapeStartStateParser,
-		scriptDataEscapeStartDashState:                p.scriptDataEscapeStartDashStateParser,
-		scriptDataEscapedState:                        p.scriptDataEscapedStateParser,
-		scriptDataEscapedDashState:                    p.scriptDataEscapedDashStateParser,
-		scriptDataEscapedDashDashState:                p.scriptDataEscapedDashDashStateParser,
-		scriptDataEscapedLessThanSignState:            p.scriptDataEscapedLessThanSignStateParser,
-		scriptDataEscapedEndTagOpenState:              p.scriptDataEscapedEndTagOpenStateParser,
-		scriptDataEscapedEndTagNameState:              p.scriptDataEscapedEndTagNameStateParser,
-		scriptDataDoubleEscapeStartState:              p.scriptDataDoubleEscapeStartStateParser,
-		scriptDataDoubleEscapedState:                  p.scriptDataDoubleEscapedStateParser,
-		scriptDataDoubleEscapedDashState:              p.scriptDataDoubleEscapedDashStateParser,
-		scriptDataDoubleEscapedDashDashState:          p.scriptDataDoubleEscapedDashDashStateParser,
-		scriptDataDoubleEscapedLessThanSignState:      p.scriptDataDoubleEscapedLessThanSignStateParser,
-		scriptDataDoubleEscapeEndState:                p.scriptDataDoubleEscapeEndStateParser,
-		beforeAttributeNameState:                      p.beforeAttributeNameStateParser,
-		attributeNameState:                            p.attributeNameStateParser,
-		afterAttributeNameState:                       p.afterAttributeNameStateParser,
-		beforeAttributeValueState:                     p.beforeAttributeValueStateParser,
-		attributeValueDoubleQuotedState:               p.attributeValueDoubleQuotedStateParser,
-		attributeValueSingleQuotedState:               p.attributeValueSingleQuotedStateParser,
-		attributeValueUnquotedState:                   p.attributeValueUnquotedStateParser,
-		afterAttributeValueQuotedState:                p.afterAttributeValueQuotedStateParser,
-		selfClosingStartTagState:                      p.selfClosingStartTagStateParser,
-		bogusCommentState:                             p.bogusCommentStateParser,
-		markupDeclarationOpenState:                    p.markupDeclarationOpenStateParser,
-		commentStartState:                             p.commentStartStateParser,
-		commentStartDashState:                         p.commentStartDashStateParser,
-		commentState:                                  p.commentStateParser,
-		commentLessThanSignState:                      p.commentLessThanSignStateParser,
-		commentLessThanSignBangState:                  p.commentLessThanSignBangStateParser,
-		commentLessThanSignBangDashState:              p.commentLessThanSignBangDashStateParser,
-		commentLessThanSignBangDashDashState:          p.commentLessThanSignBangDashDashStateParser,
-		commentEndDashState:                           p.commentEndDashStateParser,
-		commentEndState:                               p.commentEndStateParser,
-		commentEndBangState:                           p.commentEndBangStateParser,
-		doctypeState:                                  p.doctypeStateParser,
-		beforeDoctypeNameState:                        p.beforeDoctypeNameStateParser,
-		doctypeNameState:                              p.doctypeNameStateParser,
-		afterDoctypeNameState:                         p.afterDoctypeNameStateParser,
-		afterDoctypePublicKeywordState:                p.afterDoctypePublicKeywordStateParser,
-		beforeDoctypePublicIdentifierState:            p.beforeDoctypePublicIdentifierStateParser,
-		doctypePublicIdentifierDoubleQuotedState:      p.doctypePublicIdentifierDoubleQuotedStateParser,
-		doctypePublicIdentifierSingleQuotedState:      p.doctypePublicIdentifierSingleQuotedStateParser,
-		afterDoctypePublicIdentifierState:             p.afterDoctypePublicIdentifierStateParser,
-		betweenDoctypePublicAndSystemIdentifiersState: p.betweenDoctypePublicAndSystemIdentifiersStateParser,
-		afterDoctypeSystemKeywordState:                p.afterDoctypeSystemKeywordStateParser,
-		beforeDoctypeSystemIdentifierState:            p.beforeDoctypeSystemIdentifierStateParser,
-		doctypeSystemIdentifierDoubleQuotedState:      p.doctypeSystemIdentifierDoubleQuotedStateParser,
-		doctypeSystemIdentifierSingleQuotedState:      p.doctypeSystemIdentifierSingleQuotedStateParser,
-		afterDoctypeSystemIdentifierState:             p.afterDoctypeSystemIdentifierStateParser,
-		bogusDoctypeState:                             p.bogusDoctypeStateParser,
-		cdataSectionState:                             p.cdataSectionStateParser,
-		cdataSectionBracketState:                      p.cdataSectionBracketStateParser,
-		cdataSectionEndState:                          p.cdataSectionEndStateParser,
-		characterReferenceState:                       p.characterReferenceStateParser,
-		namedCharacterReferenceState:                  p.namedCharacterReferenceStateParser,
-		ambiguousAmpersandState:                       p.ambiguousAmpersandStateParser,
-		numericCharacterReferenceState:                p.numericCharacterReferenceStateParser,
-		hexadecimalCharacterReferenceStartState:       p.hexadecimalCharacterReferenceStartStateParser,
-		decimalCharacterReferenceStartState:           p.decimalCharacterReferenceStartStateParser,
-		hexadecimalCharacterReferenceState:            p.hexadecimalCharacterReferenceStateParser,
-		decimalCharacterReferenceState:                p.decimalCharacterReferenceStateParser,
-		numericCharacterReferenceEndState:             p.numericCharacterReferenceEndStateParser,
+func NewHTMLTokenizer(htmlIn io.Reader) *HTMLTokenizer {
+	return &HTMLTokenizer{
+		done:          false,
+		returnState:   dataState,
+		currentState:  dataState,
+		emittedTokens: []*Token{},
+		inputStream:   bufio.NewReader(htmlIn),
+		tokenBuilder:  newTokenBuilder(),
 	}
 }
 
-// TODO: implement
-func (p *HTMLTokenizer) adjustedCurrentNode() bool {
-	return false
-}
+func (p *HTMLTokenizer) stateToParser(state tokenizerState) parserStateHandler {
+	switch state {
+	case dataState:
+		return p.dataStateParser
+	case rcDataState:
+		return p.rcDataStateParser
+	case rawTextState:
+		return p.rawTextStateParser
+	case scriptDataState:
+		return p.scriptDataStateParser
+	case plaintextState:
+		return p.plaintextStateParser
+	case tagOpenState:
+		return p.tagOpenStateParser
+	case endTagOpenState:
+		return p.endTagOpenStateParser
+	case tagNameState:
+		return p.tagNameStateParser
+	case rcDataLessThanSignState:
+		return p.rcDataLessThanSignStateParser
+	case rcDataEndTagOpenState:
+		return p.rcDataEndTagOpenStateParser
+	case rcDataEndTagNameState:
+		return p.rcDataEndTagNameStateParser
+	case rawTextLessThanSignState:
+		return p.rawTextLessThanSignStateParser
+	case rawTextEndTagOpenState:
+		return p.rawTextEndTagOpenStateParser
+	case rawTextEndTagNameState:
+		return p.rawTextEndTagNameStateParser
+	case scriptDataLessThanSignState:
+		return p.scriptDataLessThanSignStateParser
+	case scriptDataEndTagOpenState:
+		return p.scriptDataEndTagOpenStateParser
+	case scriptDataEndTagNameState:
+		return p.scriptDataEndTagNameStateParser
+	case scriptDataEscapeStartState:
+		return p.scriptDataEscapeStartStateParser
+	case scriptDataEscapeStartDashState:
+		return p.scriptDataEscapeStartDashStateParser
+	case scriptDataEscapedState:
+		return p.scriptDataEscapedStateParser
+	case scriptDataEscapedDashState:
+		return p.scriptDataEscapedDashStateParser
+	case scriptDataEscapedDashDashState:
+		return p.scriptDataEscapedDashDashStateParser
+	case scriptDataEscapedLessThanSignState:
+		return p.scriptDataEscapedLessThanSignStateParser
+	case scriptDataEscapedEndTagOpenState:
+		return p.scriptDataEscapedEndTagOpenStateParser
+	case scriptDataEscapedEndTagNameState:
+		return p.scriptDataEscapedEndTagNameStateParser
+	case scriptDataDoubleEscapeStartState:
+		return p.scriptDataDoubleEscapeStartStateParser
+	case scriptDataDoubleEscapedState:
+		return p.scriptDataDoubleEscapedStateParser
+	case scriptDataDoubleEscapedDashState:
+		return p.scriptDataDoubleEscapedDashStateParser
+	case scriptDataDoubleEscapedDashDashState:
+		return p.scriptDataDoubleEscapedDashDashStateParser
+	case scriptDataDoubleEscapedLessThanSignState:
+		return p.scriptDataDoubleEscapedLessThanSignStateParser
+	case scriptDataDoubleEscapeEndState:
+		return p.scriptDataDoubleEscapeEndStateParser
+	case beforeAttributeNameState:
+		return p.beforeAttributeNameStateParser
+	case attributeNameState:
+		return p.attributeNameStateParser
+	case afterAttributeNameState:
+		return p.afterAttributeNameStateParser
+	case beforeAttributeValueState:
+		return p.beforeAttributeValueStateParser
+	case attributeValueDoubleQuotedState:
+		return p.attributeValueDoubleQuotedStateParser
+	case attributeValueSingleQuotedState:
+		return p.attributeValueSingleQuotedStateParser
+	case attributeValueUnquotedState:
+		return p.attributeValueUnquotedStateParser
+	case afterAttributeValueQuotedState:
+		return p.afterAttributeValueQuotedStateParser
+	case selfClosingStartTagState:
+		return p.selfClosingStartTagStateParser
+	case bogusCommentState:
+		return p.bogusCommentStateParser
+	case markupDeclarationOpenState:
+		return p.markupDeclarationOpenStateParser
+	case commentStartState:
+		return p.commentStartStateParser
+	case commentStartDashState:
+		return p.commentStartDashStateParser
+	case commentState:
+		return p.commentStateParser
+	case commentLessThanSignState:
+		return p.commentLessThanSignStateParser
+	case commentLessThanSignBangState:
+		return p.commentLessThanSignBangStateParser
+	case commentLessThanSignBangDashState:
+		return p.commentLessThanSignBangDashStateParser
+	case commentLessThanSignBangDashDashState:
+		return p.commentLessThanSignBangDashDashStateParser
+	case commentEndDashState:
+		return p.commentEndDashStateParser
+	case commentEndState:
+		return p.commentEndStateParser
+	case commentEndBangState:
+		return p.commentEndBangStateParser
+	case doctypeState:
+		return p.doctypeStateParser
+	case beforeDoctypeNameState:
+		return p.beforeDoctypeNameStateParser
+	case doctypeNameState:
+		return p.doctypeNameStateParser
+	case afterDoctypeNameState:
+		return p.afterDoctypeNameStateParser
+	case afterDoctypePublicKeywordState:
+		return p.afterDoctypePublicKeywordStateParser
+	case beforeDoctypePublicIdentifierState:
+		return p.beforeDoctypePublicIdentifierStateParser
+	case doctypePublicIdentifierDoubleQuotedState:
+		return p.doctypePublicIdentifierDoubleQuotedStateParser
+	case doctypePublicIdentifierSingleQuotedState:
+		return p.doctypePublicIdentifierSingleQuotedStateParser
+	case afterDoctypePublicIdentifierState:
+		return p.afterDoctypePublicIdentifierStateParser
+	case betweenDoctypePublicAndSystemIdentifiersState:
+		return p.betweenDoctypePublicAndSystemIdentifiersStateParser
+	case afterDoctypeSystemKeywordState:
+		return p.afterDoctypeSystemKeywordStateParser
+	case beforeDoctypeSystemIdentifierState:
+		return p.beforeDoctypeSystemIdentifierStateParser
+	case doctypeSystemIdentifierDoubleQuotedState:
+		return p.doctypeSystemIdentifierDoubleQuotedStateParser
+	case doctypeSystemIdentifierSingleQuotedState:
+		return p.doctypeSystemIdentifierSingleQuotedStateParser
+	case afterDoctypeSystemIdentifierState:
+		return p.afterDoctypeSystemIdentifierStateParser
+	case bogusDoctypeState:
+		return p.bogusDoctypeStateParser
+	case cdataSectionState:
+		return p.cdataSectionStateParser
+	case cdataSectionBracketState:
+		return p.cdataSectionBracketStateParser
+	case cdataSectionEndState:
+		return p.cdataSectionEndStateParser
+	case characterReferenceState:
+		return p.characterReferenceStateParser
+	case namedCharacterReferenceState:
+		return p.namedCharacterReferenceStateParser
+	case ambiguousAmpersandState:
+		return p.ambiguousAmpersandStateParser
+	case numericCharacterReferenceState:
+		return p.numericCharacterReferenceStateParser
+	case hexadecimalCharacterReferenceStartState:
+		return p.hexadecimalCharacterReferenceStartStateParser
+	case decimalCharacterReferenceStartState:
+		return p.decimalCharacterReferenceStartStateParser
+	case hexadecimalCharacterReferenceState:
+		return p.hexadecimalCharacterReferenceStateParser
+	case decimalCharacterReferenceState:
+		return p.decimalCharacterReferenceStateParser
+	case numericCharacterReferenceEndState:
+		return p.numericCharacterReferenceEndStateParser
+	}
 
-// TODO: implement
-func (p *HTMLTokenizer) inHTMLNamepsace() bool {
-	return false
+	return nil
 }
 
 func isNonCharacter(code int) bool {
@@ -210,9 +262,7 @@ func (p *HTMLTokenizer) flushCodePointsAsCharacterReference() {
 			p.tokenBuilder.WriteAttributeValue(v)
 		}
 	} else {
-		for _, v := range p.tokenBuilder.TempBuffer() {
-			p.emit(p.tokenBuilder.CharacterToken(v))
-		}
+		p.emit(p.tokenBuilder.TempBufferCharTokens()...)
 	}
 }
 
@@ -220,913 +270,879 @@ func (p *HTMLTokenizer) isApprEndTagToken() bool {
 	return p.lastEmittedStartTagName == p.tokenBuilder.name.String()
 }
 
-func (p *HTMLTokenizer) emit(tok Token) {
-	if tok.TokenType == endTagToken {
-		// When an end tag token is emitted with attributes, that is an end-tag-with-attributes
-		// parse error.
-		if len(tok.Attributes) > 0 {
-			logError(endTagWithAttributes)
-			tok.Attributes = make(map[string]*spec.Attr)
-		}
+func (p *HTMLTokenizer) emit(toks ...*Token) {
+	for _, tok := range toks {
+		if tok.TokenType == endTagToken {
+			// When an end tag token is emitted with attributes, that is an end-tag-with-attributes
+			// parse error.
+			if len(tok.Attributes) > 0 {
+				tok.Attributes = make(map[string]*spec.Attr)
+			}
 
-		// When an end tag token is emitted with its self-closing flag set, that is an
-		// end-tag-with-trailing-solidus parse error.
-		if tok.SelfClosing {
-			logError(endTagWithTrailingSolidus)
-			tok.SelfClosing = false
+			// When an end tag token is emitted with its self-closing flag set, that is an
+			// end-tag-with-trailing-solidus parse error.
+			if tok.SelfClosing {
+				tok.SelfClosing = false
+			}
+		} else if tok.TokenType == startTagToken {
+			p.lastEmittedStartTagName = tok.TagName
 		}
-	} else if tok.TokenType == startTagToken {
-		p.lastEmittedStartTagName = tok.TagName
-
 	}
-	p.tokenChannel <- &tok
+
+	p.emittedTokens = append(p.emittedTokens, toks...)
 }
 
-func (p *HTMLTokenizer) emitAndWait(tok Token) tokenizerState {
-	tok.Special = true
-	p.emit(tok)
-	ret := <-p.stateChannel
-	return ret
-}
-
-func (p *HTMLTokenizer) isEndOfFile() bool {
-	return p.eof
-}
-
-func (p *HTMLTokenizer) dataStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) dataStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+		return false, dataState
 	}
 	switch r {
 	case '&':
 		p.returnState = dataState
-		return false, characterReferenceState, noError
+		return false, characterReferenceState
 	case '<':
-		return false, tagOpenState, noError
+		return false, tagOpenState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, dataState, unexpectedNullCharacter
+		return false, dataState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, dataState, noError
+		return false, dataState
 	}
 }
 
-func (p *HTMLTokenizer) rcDataStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rcDataStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+		return false, dataState
 	}
 	switch r {
 	case '&':
 		p.returnState = rcDataState
-		return false, characterReferenceState, noError
+		return false, characterReferenceState
 	case '<':
-		return false, rcDataLessThanSignState, noError
+		return false, rcDataLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, rcDataState, unexpectedNullCharacter
+		return false, rcDataState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, rcDataState, noError
+		return false, rcDataState
 	}
 }
-func (p *HTMLTokenizer) rawTextStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rawTextStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+		return false, dataState
 	}
 	switch r {
 	case '<':
-		return false, rawTextLessThanSignState, noError
+		return false, rawTextLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, rawTextState, unexpectedNullCharacter
+		return false, rawTextState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, rawTextState, noError
+		return false, rawTextState
 	}
 }
-func (p *HTMLTokenizer) scriptDataStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+		return false, dataState
 	}
 	switch r {
 	case '<':
-		return false, scriptDataLessThanSignState, noError
+		return false, scriptDataLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataState, unexpectedNullCharacter
+		return false, scriptDataState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataState, noError
+		return false, scriptDataState
 	}
 }
 
-func (p *HTMLTokenizer) plaintextStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) plaintextStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+		return false, dataState
 	}
 	switch r {
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, plaintextState, unexpectedNullCharacter
+		return false, plaintextState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, plaintextState, noError
+		return false, plaintextState
 	}
 }
 
-func (p *HTMLTokenizer) tagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofBeforeTagName
+func (p *HTMLTokenizer) tagOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '!':
-		return false, markupDeclarationOpenState, noError
+		return false, markupDeclarationOpenState
 	case '/':
-		return false, endTagOpenState, noError
+		return false, endTagOpenState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.curTagType = startTag
-		return true, tagNameState, noError
+		return true, tagNameState
 	case '?':
 		p.tokenBuilder.NewToken()
-		return true, bogusCommentState, unexpectedQuestionMakrInsteadofTagName
+		return true, bogusCommentState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, dataState, invalidFirstCharacterOfTagName
+		return true, dataState
 	}
 }
 
-func (p *HTMLTokenizer) endTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('/'))
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofBeforeTagName
+func (p *HTMLTokenizer) endTagOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.curTagType = endTag
-		return true, tagNameState, noError
+		return true, tagNameState
 	case '>':
 
-		return false, dataState, missingEndTagName
+		return false, dataState
 	default:
 		p.tokenBuilder.NewToken()
-		return true, bogusCommentState, invalidFirstCharacterOfTagName
+		return true, bogusCommentState
 	}
 }
 
-func (p *HTMLTokenizer) tagNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) tagNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020': // tab, line feed, form feed, space
-		return false, beforeAttributeNameState, noError
+		return false, beforeAttributeNameState
 	case '/':
-		return false, selfClosingStartTagState, noError
+		return false, selfClosingStartTagState
 	case '>':
-		return false, p.emitCurrentTag(), noError
+		return false, p.emitCurrentTag()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, tagNameState, noError
+		return false, tagNameState
 	case '\u0000': // null
 		p.tokenBuilder.WriteName('\uFFFD')
-		return false, tagNameState, unexpectedNullCharacter
+		return false, tagNameState
 	default:
 		p.tokenBuilder.WriteName(r)
-		return false, tagNameState, noError
+		return false, tagNameState
 	}
 }
 
-func (p *HTMLTokenizer) rcDataLessThanSignStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rcDataLessThanSignStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rcDataState, noError
+		return true, rcDataState
 	}
 	switch r {
 	case '/':
 		p.tokenBuilder.ResetTempBuffer()
-		return false, rcDataEndTagOpenState, noError
+		return false, rcDataEndTagOpenState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rcDataState, noError
+		return true, rcDataState
 	}
 }
 
-func (p *HTMLTokenizer) defaultRcDataEndTagOpenStateParser() (bool, tokenizerState, parseError) {
-	p.emit(p.tokenBuilder.CharacterToken('<'))
-	p.emit(p.tokenBuilder.CharacterToken('/'))
-	return true, rcDataState, noError
+func (p *HTMLTokenizer) defaultRcDataEndTagOpenStateParser() (bool, tokenizerState) {
+	p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+	return true, rcDataState
 }
-func (p *HTMLTokenizer) rcDataEndTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rcDataEndTagOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		return p.defaultRcDataEndTagOpenStateParser()
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.curTagType = endTag
-		return true, rcDataEndTagNameState, noError
+		return true, rcDataEndTagNameState
 	default:
 		return p.defaultRcDataEndTagOpenStateParser()
 	}
 }
 
-func (p *HTMLTokenizer) defaultRcDataEndTagNameStateCase() (bool, tokenizerState, parseError) {
-	p.emit(p.tokenBuilder.CharacterToken('<'))
-	p.emit(p.tokenBuilder.CharacterToken('/'))
-	for _, r := range p.tokenBuilder.TempBuffer() {
-		p.emit(p.tokenBuilder.CharacterToken(r))
-	}
-	return true, rcDataState, noError
+func (p *HTMLTokenizer) defaultRcDataEndTagNameStateCase() (bool, tokenizerState) {
+	p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+	p.emit(p.tokenBuilder.TempBufferCharTokens()...)
+	return true, rcDataState
 }
-func (p *HTMLTokenizer) rcDataEndTagNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rcDataEndTagNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		return p.defaultRcDataEndTagNameStateCase()
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
 		if p.isApprEndTagToken() {
-			return false, beforeAttributeNameState, noError
+			return false, beforeAttributeNameState
 		}
 		return p.defaultRcDataEndTagNameStateCase()
 	case '/':
 		if p.isApprEndTagToken() {
-			return false, selfClosingStartTagState, noError
+			return false, selfClosingStartTagState
 		}
 		return p.defaultRcDataEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			return false, p.emitCurrentTag(), noError
+			return false, p.emitCurrentTag()
 		}
 		return p.defaultRcDataEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, rcDataEndTagNameState, noError
+		return false, rcDataEndTagNameState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		p.tokenBuilder.WriteName(r)
-		return false, rcDataEndTagNameState, noError
+		return false, rcDataEndTagNameState
 	default:
 		return p.defaultRcDataEndTagNameStateCase()
 	}
 }
-func (p *HTMLTokenizer) rawTextLessThanSignStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rawTextLessThanSignStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rawTextState, noError
+		return true, rawTextState
 	}
 	switch r {
 	case '/':
 		p.tokenBuilder.ResetTempBuffer()
-		return false, rawTextEndTagOpenState, noError
+		return false, rawTextEndTagOpenState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, rawTextState, noError
+		return true, rawTextState
 	}
 }
 
-func (p *HTMLTokenizer) defaultRawTextEndTagOpenStateParser() (bool, tokenizerState, parseError) {
-	p.emit(p.tokenBuilder.CharacterToken('<'))
-	p.emit(p.tokenBuilder.CharacterToken('/'))
-	return true, rawTextState, noError
+func (p *HTMLTokenizer) defaultRawTextEndTagOpenStateParser() (bool, tokenizerState) {
+	p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+	return true, rawTextState
 }
 
-func (p *HTMLTokenizer) rawTextEndTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rawTextEndTagOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		return p.defaultRawTextEndTagOpenStateParser()
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.curTagType = endTag
-		return true, rawTextEndTagNameState, noError
+		return true, rawTextEndTagNameState
 	default:
 		return p.defaultRawTextEndTagOpenStateParser()
 	}
 }
 
-func (p *HTMLTokenizer) defaultRawTextEndTagNameStateCase() (bool, tokenizerState, parseError) {
-	p.emit(p.tokenBuilder.CharacterToken('<'))
-	p.emit(p.tokenBuilder.CharacterToken('/'))
-	for _, r := range p.tokenBuilder.TempBuffer() {
-		p.emit(p.tokenBuilder.CharacterToken(r))
-	}
-	return true, rawTextState, noError
+func (p *HTMLTokenizer) defaultRawTextEndTagNameStateCase() (bool, tokenizerState) {
+	p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+	p.emit(p.tokenBuilder.TempBufferCharTokens()...)
+	return true, rawTextState
 }
-func (p *HTMLTokenizer) rawTextEndTagNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) rawTextEndTagNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		return p.defaultRawTextEndTagNameStateCase()
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
 		if p.isApprEndTagToken() {
-			return false, beforeAttributeNameState, noError
+			return false, beforeAttributeNameState
 		}
 		return p.defaultRawTextEndTagNameStateCase()
 	case '/':
 		if p.isApprEndTagToken() {
-			return false, selfClosingStartTagState, noError
+			return false, selfClosingStartTagState
 		}
 		return p.defaultRawTextEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			return false, p.emitCurrentTag(), noError
+			return false, p.emitCurrentTag()
 		}
 		return p.defaultRawTextEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, rawTextEndTagNameState, noError
+		return false, rawTextEndTagNameState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		p.tokenBuilder.WriteName(r)
-		return false, rawTextEndTagNameState, noError
+		return false, rawTextEndTagNameState
 	default:
 		return p.defaultRawTextEndTagNameStateCase()
 	}
 }
-func (p *HTMLTokenizer) scriptDataLessThanSignStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataLessThanSignStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, scriptDataState, noError
+		return true, scriptDataState
 	}
 	switch r {
 	case '/':
 		p.tokenBuilder.ResetTempBuffer()
-		return false, scriptDataEndTagOpenState, noError
+		return false, scriptDataEndTagOpenState
 	case '!':
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('!'))
-		return false, scriptDataEscapeStartState, noError
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('!'))
+		return false, scriptDataEscapeStartState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, scriptDataState, noError
+		return true, scriptDataState
 	}
 }
 
-func (p *HTMLTokenizer) scriptDataEndTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('/'))
-		return true, scriptDataState, noError
+func (p *HTMLTokenizer) scriptDataEndTagOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+		return true, scriptDataState
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.curTagType = endTag
-		return true, scriptDataEndTagNameState, noError
+		return true, scriptDataEndTagNameState
 	default:
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('/'))
-		return true, scriptDataState, noError
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+		return true, scriptDataState
 	}
 }
 
-func (p *HTMLTokenizer) defaultScriptDataEndTagNameStateCase() (bool, tokenizerState, parseError) {
-	p.emit(p.tokenBuilder.CharacterToken('<'))
-	p.emit(p.tokenBuilder.CharacterToken('/'))
-	for _, r := range p.tokenBuilder.TempBuffer() {
-		p.emit(p.tokenBuilder.CharacterToken(r))
-	}
-	return true, scriptDataState, noError
+func (p *HTMLTokenizer) defaultScriptDataEndTagNameStateCase() (bool, tokenizerState) {
+	p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+	p.emit(p.tokenBuilder.TempBufferCharTokens()...)
+	return true, scriptDataState
 }
-func (p *HTMLTokenizer) scriptDataEndTagNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataEndTagNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		return p.defaultScriptDataEndTagNameStateCase()
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
 		if p.isApprEndTagToken() {
-			return false, beforeAttributeNameState, noError
+			return false, beforeAttributeNameState
 		}
 		return p.defaultScriptDataEndTagNameStateCase()
 	case '/':
 		if p.isApprEndTagToken() {
-			return false, selfClosingStartTagState, noError
+			return false, selfClosingStartTagState
 		}
 		return p.defaultScriptDataEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			return false, p.emitCurrentTag(), noError
+			return false, p.emitCurrentTag()
 		}
 		return p.defaultScriptDataEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, scriptDataEndTagNameState, noError
+		return false, scriptDataEndTagNameState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		p.tokenBuilder.WriteName(r)
-		return false, scriptDataEndTagNameState, noError
+		return false, scriptDataEndTagNameState
 	default:
 		return p.defaultScriptDataEndTagNameStateCase()
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapeStartStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, scriptDataState, noError
+func (p *HTMLTokenizer) scriptDataEscapeStartStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, scriptDataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataEscapeStartDashState, noError
+		return false, scriptDataEscapeStartDashState
 	default:
-		return true, scriptDataState, noError
+		return true, scriptDataState
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapeStartDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, scriptDataState, noError
+func (p *HTMLTokenizer) scriptDataEscapeStartDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, scriptDataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataEscapedDashDashState, noError
+		return false, scriptDataEscapedDashDashState
 	default:
-		return true, scriptDataState, noError
+		return true, scriptDataState
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataEscapedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInScriptHTMLCommentLikeText
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataEscapedDashState, noError
+		return false, scriptDataEscapedDashState
 	case '<':
-		return false, scriptDataEscapedLessThanSignState, noError
+		return false, scriptDataEscapedLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataEscapedState, unexpectedNullCharacter
+		return false, scriptDataEscapedState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataEscapedState, noError
+		return false, scriptDataEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapedDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataEscapedDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInScriptHTMLCommentLikeText
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataEscapedDashDashState, noError
+		return false, scriptDataEscapedDashDashState
 	case '<':
-		return false, scriptDataEscapedLessThanSignState, noError
+		return false, scriptDataEscapedLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataEscapedState, unexpectedNullCharacter
+		return false, scriptDataEscapedState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataEscapedState, noError
+		return false, scriptDataEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapedDashDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataEscapedDashDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInScriptHTMLCommentLikeText
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataEscapedDashDashState, noError
+		return false, scriptDataEscapedDashDashState
 	case '<':
-		return false, scriptDataEscapedLessThanSignState, noError
+		return false, scriptDataEscapedLessThanSignState
 	case '>':
 		p.emit(p.tokenBuilder.CharacterToken('>'))
-		return false, scriptDataState, noError
+		return false, scriptDataState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataEscapedState, unexpectedNullCharacter
+		return false, scriptDataEscapedState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataEscapedState, noError
+		return false, scriptDataEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapedLessThanSignStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataEscapedLessThanSignStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, scriptDataEscapedState, noError
+		return true, scriptDataEscapedState
 	}
 	switch r {
 	case '/':
 		p.tokenBuilder.ResetTempBuffer()
-		return false, scriptDataEscapedEndTagOpenState, noError
+		return false, scriptDataEscapedEndTagOpenState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.ResetTempBuffer()
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, scriptDataDoubleEscapeStartState, noError
+		return true, scriptDataDoubleEscapeStartState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return true, scriptDataEscapedState, noError
+		return true, scriptDataEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataEscapedEndTagOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('/'))
-		return true, scriptDataEscapedState, noError
+func (p *HTMLTokenizer) scriptDataEscapedEndTagOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+		return true, scriptDataEscapedState
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.curTagType = endTag
-		return true, scriptDataEscapedEndTagNameState, noError
+		return true, scriptDataEscapedEndTagNameState
 	default:
-		p.emit(p.tokenBuilder.CharacterToken('<'))
-		p.emit(p.tokenBuilder.CharacterToken('/'))
-		return true, scriptDataEscapedState, noError
+		p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+		return true, scriptDataEscapedState
 	}
 }
 
-func (p *HTMLTokenizer) defaultScriptDataEscapedEndTagNameStateCase() (bool, tokenizerState, parseError) {
-	p.emit(p.tokenBuilder.CharacterToken('<'))
-	p.emit(p.tokenBuilder.CharacterToken('/'))
-	for _, r := range p.tokenBuilder.TempBuffer() {
-		p.emit(p.tokenBuilder.CharacterToken(r))
-	}
-	return true, scriptDataEscapedState, noError
+func (p *HTMLTokenizer) defaultScriptDataEscapedEndTagNameStateCase() (bool, tokenizerState) {
+	p.emit(p.tokenBuilder.CharacterToken('<'), p.tokenBuilder.CharacterToken('/'))
+	p.emit(p.tokenBuilder.TempBufferCharTokens()...)
+	return true, scriptDataEscapedState
 }
-func (p *HTMLTokenizer) scriptDataEscapedEndTagNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataEscapedEndTagNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
 		if p.isApprEndTagToken() {
-			return false, beforeAttributeNameState, noError
+			return false, beforeAttributeNameState
 		}
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	case '/':
 		if p.isApprEndTagToken() {
-			return false, selfClosingStartTagState, noError
+			return false, selfClosingStartTagState
 		}
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	case '>':
 		if p.isApprEndTagToken() {
-			return false, p.emitCurrentTag(), noError
+			return false, p.emitCurrentTag()
 		}
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, scriptDataEscapedEndTagNameState, noError
+		return false, scriptDataEscapedEndTagNameState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 		p.tokenBuilder.WriteTempBuffer(r)
 		p.tokenBuilder.WriteName(r)
-		return false, scriptDataEscapedEndTagNameState, noError
+		return false, scriptDataEscapedEndTagNameState
 	default:
 		return p.defaultScriptDataEscapedEndTagNameStateCase()
 	}
 }
-func (p *HTMLTokenizer) scriptDataDoubleEscapeStartStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, scriptDataEscapedState, noError
+func (p *HTMLTokenizer) scriptDataDoubleEscapeStartStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, scriptDataEscapedState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020', '/', '>':
 		p.emit(p.tokenBuilder.CharacterToken(r))
 		if p.tokenBuilder.TempBuffer() == "script" {
-			return false, scriptDataDoubleEscapedState, noError
+			return false, scriptDataDoubleEscapedState
 		}
-		return false, scriptDataEscapedState, noError
+		return false, scriptDataEscapedState
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.emit(p.tokenBuilder.CharacterToken(r))
 		r += 0x20
 		p.tokenBuilder.WriteTempBuffer(r)
-		return false, scriptDataDoubleEscapeStartState, noError
+		return false, scriptDataDoubleEscapeStartState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 		p.emit(p.tokenBuilder.CharacterToken(r))
 		p.tokenBuilder.WriteTempBuffer(r)
-		return false, scriptDataDoubleEscapeStartState, noError
+		return false, scriptDataDoubleEscapeStartState
 	default:
-		return true, scriptDataEscapedState, noError
+		return true, scriptDataEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataDoubleEscapedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataDoubleEscapedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInScriptHTMLCommentLikeText
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataDoubleEscapedDashState, noError
+		return false, scriptDataDoubleEscapedDashState
 	case '<':
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return false, scriptDataDoubleEscapedLessThanSignState, noError
+		return false, scriptDataDoubleEscapedLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataDoubleEscapedState, unexpectedNullCharacter
+		return false, scriptDataDoubleEscapedState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataDoubleEscapedState, noError
+		return false, scriptDataDoubleEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataDoubleEscapedDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataDoubleEscapedDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInScriptHTMLCommentLikeText
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataDoubleEscapedDashDashState, noError
+		return false, scriptDataDoubleEscapedDashDashState
 	case '<':
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return false, scriptDataDoubleEscapedLessThanSignState, noError
+		return false, scriptDataDoubleEscapedLessThanSignState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataDoubleEscapedState, unexpectedNullCharacter
+		return false, scriptDataDoubleEscapedState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataDoubleEscapedState, noError
+		return false, scriptDataDoubleEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataDoubleEscapedDashDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) scriptDataDoubleEscapedDashDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInScriptHTMLCommentLikeText
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.emit(p.tokenBuilder.CharacterToken('-'))
-		return false, scriptDataDoubleEscapedDashDashState, noError
+		return false, scriptDataDoubleEscapedDashDashState
 	case '<':
 		p.emit(p.tokenBuilder.CharacterToken('<'))
-		return false, scriptDataDoubleEscapedLessThanSignState, noError
+		return false, scriptDataDoubleEscapedLessThanSignState
 	case '>':
 		p.emit(p.tokenBuilder.CharacterToken('>'))
-		return false, scriptDataState, noError
+		return false, scriptDataState
 	case '\u0000':
 		p.emit(p.tokenBuilder.CharacterToken('\uFFFD'))
-		return false, scriptDataDoubleEscapedState, unexpectedNullCharacter
+		return false, scriptDataDoubleEscapedState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, scriptDataDoubleEscapedState, noError
+		return false, scriptDataDoubleEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataDoubleEscapedLessThanSignStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, scriptDataDoubleEscapedState, noError
+func (p *HTMLTokenizer) scriptDataDoubleEscapedLessThanSignStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, scriptDataDoubleEscapedState
 	}
 	switch r {
 	case '/':
 		p.tokenBuilder.ResetTempBuffer()
 		p.emit(p.tokenBuilder.CharacterToken('/'))
-		return false, scriptDataDoubleEscapeEndState, noError
+		return false, scriptDataDoubleEscapeEndState
 	default:
-		return true, scriptDataDoubleEscapedState, noError
+		return true, scriptDataDoubleEscapedState
 	}
 }
-func (p *HTMLTokenizer) scriptDataDoubleEscapeEndStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, scriptDataDoubleEscapedState, noError
+func (p *HTMLTokenizer) scriptDataDoubleEscapeEndStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, scriptDataDoubleEscapedState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020', '/', '>':
 		p.emit(p.tokenBuilder.CharacterToken(r))
 		if p.tokenBuilder.TempBuffer() == "script" {
-			return false, scriptDataEscapedState, noError
+			return false, scriptDataEscapedState
 		}
-		return false, scriptDataDoubleEscapedState, noError
+		return false, scriptDataDoubleEscapedState
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.emit(p.tokenBuilder.CharacterToken(r))
 		r += 0x20
 		p.tokenBuilder.WriteTempBuffer(r)
-		return false, scriptDataDoubleEscapeEndState, noError
+		return false, scriptDataDoubleEscapeEndState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 		p.emit(p.tokenBuilder.CharacterToken(r))
 		p.tokenBuilder.WriteTempBuffer(r)
-		return false, scriptDataDoubleEscapeEndState, noError
+		return false, scriptDataDoubleEscapeEndState
 	default:
-		return true, scriptDataDoubleEscapedState, noError
+		return true, scriptDataDoubleEscapedState
 	}
 }
 
-func (p *HTMLTokenizer) beforeAttributeNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, afterAttributeNameState, noError
+func (p *HTMLTokenizer) beforeAttributeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, afterAttributeNameState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeAttributeNameState, noError
+		return false, beforeAttributeNameState
 	case '/', '>':
-		return true, afterAttributeNameState, noError
+		return true, afterAttributeNameState
 	case '=':
 		// set that attribute's name to the current input character, and its value to the empty string.
 		p.tokenBuilder.WriteAttributeName(r)
-		return false, attributeNameState, unexpectedEqualsSignBeforeAttributeName
+		return false, attributeNameState
 	default:
-		return true, attributeNameState, noError
+		return true, attributeNameState
 	}
 }
 
-func (p *HTMLTokenizer) attributeNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) attributeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.CommitAttribute()
-		return true, afterAttributeNameState, noError
+		return true, afterAttributeNameState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020', '/', '>':
 		p.tokenBuilder.CommitAttribute()
-		return true, afterAttributeNameState, noError
+		return true, afterAttributeNameState
 	case '=':
 		if p.tokenBuilder.RemoveDuplicateAttributeName() {
-			return false, beforeAttributeValueState, duplicateAttribute
+			return false, beforeAttributeValueState
 		}
-		return false, beforeAttributeValueState, noError
+		return false, beforeAttributeValueState
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.WriteAttributeName(r + 0x20)
-		return false, attributeNameState, noError
+		return false, attributeNameState
 	case '\u0000':
 		p.tokenBuilder.WriteAttributeName('\uFFFD')
-		return false, attributeNameState, unexpectedNullCharacter
+		return false, attributeNameState
 	case '"', '\'', '<':
 		p.tokenBuilder.WriteAttributeName(r)
-		return false, attributeNameState, unexpectedCharacterInAttributeName
+		return false, attributeNameState
 	default:
 		p.tokenBuilder.WriteAttributeName(r)
-		return false, attributeNameState, noError
+		return false, attributeNameState
 	}
 }
 
-func (p *HTMLTokenizer) afterAttributeNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterAttributeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, afterAttributeNameState, noError
+		return false, afterAttributeNameState
 	case '/':
-		return false, selfClosingStartTagState, noError
+		return false, selfClosingStartTagState
 	case '=':
-		return false, beforeAttributeValueState, noError
+		return false, beforeAttributeValueState
 	case '>':
-		return false, p.emitCurrentTag(), noError
+		return false, p.emitCurrentTag()
 	default:
-		return true, attributeNameState, noError
+		return true, attributeNameState
 	}
 }
 
-func (p *HTMLTokenizer) beforeAttributeValueStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, attributeValueUnquotedState, noError
+func (p *HTMLTokenizer) beforeAttributeValueStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, attributeValueUnquotedState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeAttributeValueState, noError
+		return false, beforeAttributeValueState
 	case '"':
-		return false, attributeValueDoubleQuotedState, noError
+		return false, attributeValueDoubleQuotedState
 	case '\'':
-		return false, attributeValueSingleQuotedState, noError
+		return false, attributeValueSingleQuotedState
 	case '>':
 		p.tokenBuilder.CommitAttribute()
-		return false, p.emitCurrentTag(), missingAttributeValue
+		return false, p.emitCurrentTag()
 	default:
-		return true, attributeValueUnquotedState, noError
+		return true, attributeValueUnquotedState
 	}
 }
 
-func (p *HTMLTokenizer) attributeValueDoubleQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) attributeValueDoubleQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '"':
 		p.tokenBuilder.CommitAttribute()
-		return false, afterAttributeValueQuotedState, noError
+		return false, afterAttributeValueQuotedState
 	case '&':
 		p.returnState = attributeValueDoubleQuotedState
-		return false, characterReferenceState, noError
+		return false, characterReferenceState
 	case '\u0000':
 		p.tokenBuilder.WriteAttributeValue('\uFFFD')
-		return false, attributeValueDoubleQuotedState, unexpectedNullCharacter
+		return false, attributeValueDoubleQuotedState
 	default:
 		p.tokenBuilder.WriteAttributeValue(r)
-		return false, attributeValueDoubleQuotedState, noError
+		return false, attributeValueDoubleQuotedState
 	}
 }
 
-func (p *HTMLTokenizer) attributeValueSingleQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) attributeValueSingleQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '\'':
 
 		p.tokenBuilder.CommitAttribute()
-		return false, afterAttributeValueQuotedState, noError
+		return false, afterAttributeValueQuotedState
 	case '&':
 		p.returnState = attributeValueSingleQuotedState
-		return false, characterReferenceState, noError
+		return false, characterReferenceState
 	case '\u0000':
 		p.tokenBuilder.WriteAttributeValue('\uFFFD')
-		return false, attributeValueSingleQuotedState, unexpectedNullCharacter
+		return false, attributeValueSingleQuotedState
 	default:
 		p.tokenBuilder.WriteAttributeValue(r)
-		return false, attributeValueSingleQuotedState, noError
+		return false, attributeValueSingleQuotedState
 	}
 }
 
-func (p *HTMLTokenizer) attributeValueUnquotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) attributeValueUnquotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
 		p.tokenBuilder.CommitAttribute()
-		return false, beforeAttributeNameState, noError
+		return false, beforeAttributeNameState
 	case '&':
 		p.returnState = attributeValueUnquotedState
-		return false, characterReferenceState, noError
+		return false, characterReferenceState
 	case '>':
 		p.tokenBuilder.CommitAttribute()
-		return false, p.emitCurrentTag(), noError
+		return false, p.emitCurrentTag()
 	case '\u0000':
 		p.tokenBuilder.WriteAttributeValue('\uFFFD')
-		return false, attributeValueUnquotedState, unexpectedNullCharacter
+		return false, attributeValueUnquotedState
 	case '"', '\'', '<', '=', '`':
 		p.tokenBuilder.WriteAttributeValue(r)
-		return false, attributeValueUnquotedState, unexpectedCharacterInUnquotedAttributeValue
+		return false, attributeValueUnquotedState
 	default:
 		p.tokenBuilder.WriteAttributeValue(r)
-		return false, attributeValueUnquotedState, noError
+		return false, attributeValueUnquotedState
 	}
 }
 
-func (p *HTMLTokenizer) afterAttributeValueQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterAttributeValueQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeAttributeNameState, noError
+		return false, beforeAttributeNameState
 	case '/':
-		return false, selfClosingStartTagState, noError
+		return false, selfClosingStartTagState
 	case '>':
-		return false, p.emitCurrentTag(), noError
+		return false, p.emitCurrentTag()
 	default:
-		return true, beforeAttributeNameState, missingWhitespaceBetweenAttributes
+		return true, beforeAttributeNameState
 	}
 }
 
-func (p *HTMLTokenizer) selfClosingStartTagStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) selfClosingStartTagStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInTag
+		return false, dataState
 	}
 	switch r {
 	case '>':
 		p.tokenBuilder.EnableSelfClosing()
-		return false, p.emitCurrentTag(), noError
+		return false, p.emitCurrentTag()
 	default:
-		return true, beforeAttributeNameState, unexpectedSolidusInTag
+		return true, beforeAttributeNameState
 	}
 }
 
-func (p *HTMLTokenizer) bogusCommentStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CommentToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+func (p *HTMLTokenizer) bogusCommentStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CommentToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '>':
 		p.emit(p.tokenBuilder.CommentToken())
-		return false, dataState, noError
+		return false, dataState
 	case '\u0000':
 		p.tokenBuilder.WriteData('\uFFFD')
-		return false, bogusCommentState, unexpectedNullCharacter
+		return false, bogusCommentState
 	default:
 		p.tokenBuilder.WriteData(r)
-		return false, bogusCommentState, noError
+		return false, bogusCommentState
 	}
 }
 
@@ -1135,15 +1151,15 @@ var doctype = []byte("octype")
 var cdata = []byte("CDATA[")
 var peekDist = 6
 
-func (p *HTMLTokenizer) defaultMarkupDeclarationOpenStateParser() (bool, tokenizerState, parseError) {
+func (p *HTMLTokenizer) defaultMarkupDeclarationOpenStateParser() (bool, tokenizerState) {
 	p.tokenBuilder.NewToken()
-	return true, bogusCommentState, incorrectlyOpenedComment
+	return true, bogusCommentState
 }
 
-func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.NewToken()
-		return true, bogusCommentState, incorrectlyOpenedComment
+		return true, bogusCommentState
 	}
 	var (
 		peeked []byte
@@ -1152,41 +1168,41 @@ func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune) (bool, tokenize
 
 	switch r {
 	case '-':
-		peeked, err = p.htmlReader.Peek(1)
+		peeked, err = p.inputStream.Peek(1)
 		if err != nil {
 			if len(peeked) < 1 {
 				return p.defaultMarkupDeclarationOpenStateParser()
 			}
 		}
 		if len(peeked) == 1 && peeked[0] == '-' {
-			p.htmlReader.Discard(1)
+			p.inputStream.Discard(1)
 			p.tokenBuilder.NewToken()
-			return false, commentStartState, noError
+			return false, commentStartState
 		}
 
 		return p.defaultMarkupDeclarationOpenStateParser()
 	case 'D', 'd':
-		peeked, err = p.htmlReader.Peek(peekDist)
+		peeked, err = p.inputStream.Peek(peekDist)
 		if err != nil {
 			if len(peeked) < peekDist {
 				return p.defaultMarkupDeclarationOpenStateParser()
 			}
 		}
 		if bytes.EqualFold(peeked, doctype) {
-			p.htmlReader.Discard(peekDist)
-			return false, doctypeState, noError
+			p.inputStream.Discard(peekDist)
+			return false, doctypeState
 		}
 	case '[':
-		peeked, err = p.htmlReader.Peek(peekDist)
+		peeked, err = p.inputStream.Peek(peekDist)
 		if err != nil {
 			if len(peeked) < peekDist {
-				return false, bogusCommentState, incorrectlyOpenedComment
+				return false, bogusCommentState
 			}
 		}
 		if bytes.Equal(cdata, peeked) {
-			p.htmlReader.Discard(peekDist)
-			if p.adjustedCurrentNode() && !p.inHTMLNamepsace() {
-				return false, cdataSectionState, noError
+			p.inputStream.Discard(peekDist)
+			if p.adjustedCurrentNode != nil && p.adjustedCurrentNode.Element.NamespaceURI != spec.Htmlns {
+				return false, cdataSectionState
 			}
 			p.tokenBuilder.NewToken()
 			p.tokenBuilder.WriteData('[')
@@ -1196,7 +1212,7 @@ func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune) (bool, tokenize
 			p.tokenBuilder.WriteData('T')
 			p.tokenBuilder.WriteData('A')
 			p.tokenBuilder.WriteData('[')
-			return false, bogusCommentState, cdataInHTMLContent
+			return false, bogusCommentState
 		}
 	default:
 		return p.defaultMarkupDeclarationOpenStateParser()
@@ -1205,601 +1221,578 @@ func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune) (bool, tokenize
 	return p.defaultMarkupDeclarationOpenStateParser()
 }
 
-func (p *HTMLTokenizer) commentStartStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, commentState, noError
+func (p *HTMLTokenizer) commentStartStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, commentState
 	}
 	switch r {
 	case '-':
-		return false, commentStartDashState, noError
+		return false, commentStartDashState
 	case '>':
 		p.emit(p.tokenBuilder.CommentToken())
-		return false, dataState, abruptClosingOfEmptyComment
+		return false, dataState
 	default:
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) commentStartDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CommentToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInComment
+func (p *HTMLTokenizer) commentStartDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CommentToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '-':
-		return false, commentEndState, noError
+		return false, commentEndState
 	case '>':
 		p.emit(p.tokenBuilder.CommentToken())
-		return false, dataState, abruptClosingOfEmptyComment
+		return false, dataState
 	default:
 		p.tokenBuilder.WriteData('-')
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) commentStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CommentToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInComment
+func (p *HTMLTokenizer) commentStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CommentToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '<':
 		p.tokenBuilder.WriteData(r)
-		return false, commentLessThanSignState, noError
+		return false, commentLessThanSignState
 	case '-':
-		return false, commentEndDashState, noError
+		return false, commentEndDashState
 	case '\u0000':
 		p.tokenBuilder.WriteData('\uFFFD')
-		return false, commentState, unexpectedNullCharacter
+		return false, commentState
 	default:
 		p.tokenBuilder.WriteData(r)
-		return false, commentState, noError
+		return false, commentState
 	}
 }
-func (p *HTMLTokenizer) commentLessThanSignStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, commentState, noError
+func (p *HTMLTokenizer) commentLessThanSignStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, commentState
 	}
 	switch r {
 	case '!':
 		p.tokenBuilder.WriteData(r)
-		return false, commentLessThanSignBangState, noError
+		return false, commentLessThanSignBangState
 	case '<':
 		p.tokenBuilder.WriteData(r)
-		return false, commentLessThanSignState, noError
+		return false, commentLessThanSignState
 	default:
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) commentLessThanSignBangStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, commentState, noError
+func (p *HTMLTokenizer) commentLessThanSignBangStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, commentState
 	}
 	switch r {
 	case '-':
-		return false, commentLessThanSignBangDashState, noError
+		return false, commentLessThanSignBangDashState
 	default:
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) commentLessThanSignBangDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, commentEndDashState, noError
+func (p *HTMLTokenizer) commentLessThanSignBangDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, commentEndDashState
 	}
 	switch r {
 	case '-':
-		return false, commentLessThanSignBangDashDashState, noError
+		return false, commentLessThanSignBangDashDashState
 	default:
-		return true, commentEndDashState, noError
+		return true, commentEndDashState
 	}
 }
-func (p *HTMLTokenizer) commentLessThanSignBangDashDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, commentEndState, noError
+func (p *HTMLTokenizer) commentLessThanSignBangDashDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, commentEndState
 	}
 	switch r {
 	case '>':
-		return true, commentEndState, noError
+		return true, commentEndState
 	default:
-		return true, commentEndState, nestedComment
+		return true, commentEndState
 	}
 }
-func (p *HTMLTokenizer) commentEndDashStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CommentToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInComment
+func (p *HTMLTokenizer) commentEndDashStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CommentToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '-':
-		return false, commentEndState, noError
+		return false, commentEndState
 	default:
 		p.tokenBuilder.WriteData('-')
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) commentEndStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) commentEndStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 
-		p.emit(p.tokenBuilder.CommentToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInComment
+		p.emit(p.tokenBuilder.CommentToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '>':
 		p.emit(p.tokenBuilder.CommentToken())
-		return false, dataState, noError
+		return false, dataState
 	case '!':
-		return false, commentEndBangState, noError
+		return false, commentEndBangState
 	case '-':
 		p.tokenBuilder.WriteData('-')
-		return false, commentEndState, noError
+		return false, commentEndState
 	default:
 		p.tokenBuilder.WriteData('-')
 		p.tokenBuilder.WriteData('-')
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) commentEndBangStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CommentToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInComment
+func (p *HTMLTokenizer) commentEndBangStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CommentToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '-':
 		p.tokenBuilder.WriteData('-')
 		p.tokenBuilder.WriteData('-')
 		p.tokenBuilder.WriteData('!')
-		return false, commentEndDashState, noError
+		return false, commentEndDashState
 	case '>':
 		p.emit(p.tokenBuilder.CommentToken())
-		return false, dataState, incorrectlyClosedComment
+		return false, dataState
 	default:
 		p.tokenBuilder.WriteData('-')
 		p.tokenBuilder.WriteData('-')
 		p.tokenBuilder.WriteData('!')
-		return true, commentState, noError
+		return true, commentState
 	}
 }
-func (p *HTMLTokenizer) doctypeStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) doctypeStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInComment
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeDoctypeNameState, noError
+		return false, beforeDoctypeNameState
 	case '>':
-		return true, beforeDoctypeNameState, noError
+		return true, beforeDoctypeNameState
 	default:
-		return true, beforeDoctypeNameState, missingWhitespaceBeforeDoctypeName
+		return true, beforeDoctypeNameState
 	}
 }
-func (p *HTMLTokenizer) beforeDoctypeNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) beforeDoctypeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeDoctypeNameState, noError
+		return false, beforeDoctypeNameState
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		p.tokenBuilder.NewToken()
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, doctypeNameState, noError
+		return false, doctypeNameState
 	case '\u0000':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.WriteName('\uFFFD')
-		return false, doctypeNameState, unexpectedNullCharacter
+		return false, doctypeNameState
 	case '>':
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, missingDoctypeName
+		return false, dataState
 	default:
 		p.tokenBuilder.NewToken()
 		p.tokenBuilder.WriteName(r)
-		return false, doctypeNameState, noError
+		return false, doctypeNameState
 	}
 }
-func (p *HTMLTokenizer) doctypeNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) doctypeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, afterDoctypeNameState, noError
+		return false, afterDoctypeNameState
 	case '>':
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, noError
+		return false, dataState
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
-		return false, doctypeNameState, noError
+		return false, doctypeNameState
 	case '\u0000':
 		p.tokenBuilder.WriteName('\uFFFD')
-		return false, doctypeNameState, unexpectedNullCharacter
+		return false, doctypeNameState
 	default:
 		p.tokenBuilder.WriteName(r)
-		return false, doctypeNameState, noError
+		return false, doctypeNameState
 	}
 }
-func (p *HTMLTokenizer) afterDoctypeNameStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterDoctypeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, afterDoctypeNameState, noError
+		return false, afterDoctypeNameState
 	case '>':
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, noError
+		return false, dataState
 	default:
-		b, err := p.htmlReader.Peek(5)
+		b, err := p.inputStream.Peek(5)
 		if err != nil {
 			p.tokenBuilder.EnableForceQuirks()
-			return true, bogusDoctypeState, invalidCharacterSequenceAfterDoctypeName
+			return true, bogusDoctypeState
 		}
 		bs := bytes.Join([][]byte{{byte(r)}, b}, []byte{})
 		if bytes.EqualFold(bs, []byte("PUBLIC")) {
-			p.htmlReader.Discard(5)
-			return false, afterDoctypePublicKeywordState, noError
+			p.inputStream.Discard(5)
+			return false, afterDoctypePublicKeywordState
 		} else if bytes.EqualFold(bs, []byte("SYSTEM")) {
-			p.htmlReader.Discard(5)
-			return false, afterDoctypeSystemKeywordState, noError
+			p.inputStream.Discard(5)
+			return false, afterDoctypeSystemKeywordState
 		}
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, invalidCharacterSequenceAfterDoctypeName
+		return true, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) afterDoctypePublicKeywordStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterDoctypePublicKeywordStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeDoctypePublicIdentifierState, noError
+		return false, beforeDoctypePublicIdentifierState
 	case '"':
 		p.tokenBuilder.WritePublicIdentifierEmpty()
-		return false, doctypePublicIdentifierDoubleQuotedState, missingWhitespaceAfterDoctypePublicKeyword
+		return false, doctypePublicIdentifierDoubleQuotedState
 	case '\'':
 		p.tokenBuilder.WritePublicIdentifierEmpty()
-		return false, doctypePublicIdentifierSingleQuotedState, missingWhitespaceAfterDoctypePublicKeyword
+		return false, doctypePublicIdentifierSingleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, missingDoctypePublicIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, missingQuoteBeforeDoctypePublicIdentifier
+		return true, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) beforeDoctypePublicIdentifierStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) beforeDoctypePublicIdentifierStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeDoctypePublicIdentifierState, noError
+		return false, beforeDoctypePublicIdentifierState
 	case '"':
 		p.tokenBuilder.WritePublicIdentifierEmpty()
-		return false, doctypePublicIdentifierDoubleQuotedState, noError
+		return false, doctypePublicIdentifierDoubleQuotedState
 	case '\'':
 		p.tokenBuilder.WritePublicIdentifierEmpty()
-		return false, doctypePublicIdentifierSingleQuotedState, noError
+		return false, doctypePublicIdentifierSingleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, missingDoctypePublicIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, missingQuoteBeforeDoctypePublicIdentifier
+		return true, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) doctypePublicIdentifierDoubleQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) doctypePublicIdentifierDoubleQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '"':
-		return false, afterDoctypePublicIdentifierState, noError
+		return false, afterDoctypePublicIdentifierState
 	case '\u0000':
 		p.tokenBuilder.WritePublicIdentifier('\uFFFD')
-		return false, doctypePublicIdentifierDoubleQuotedState, unexpectedNullCharacter
+		return false, doctypePublicIdentifierDoubleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, abruptDoctypePublicIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.WritePublicIdentifier(r)
-		return false, doctypePublicIdentifierDoubleQuotedState, noError
+		return false, doctypePublicIdentifierDoubleQuotedState
 	}
 }
-func (p *HTMLTokenizer) doctypePublicIdentifierSingleQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) doctypePublicIdentifierSingleQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\'':
-		return false, afterDoctypePublicIdentifierState, noError
+		return false, afterDoctypePublicIdentifierState
 	case '\u0000':
 		p.tokenBuilder.WritePublicIdentifier('\uFFFD')
-		return false, doctypePublicIdentifierSingleQuotedState, unexpectedNullCharacter
+		return false, doctypePublicIdentifierSingleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, abruptDoctypePublicIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.WritePublicIdentifier(r)
-		return false, doctypePublicIdentifierSingleQuotedState, noError
+		return false, doctypePublicIdentifierSingleQuotedState
 	}
 }
-func (p *HTMLTokenizer) afterDoctypePublicIdentifierStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterDoctypePublicIdentifierStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, betweenDoctypePublicAndSystemIdentifiersState, noError
+		return false, betweenDoctypePublicAndSystemIdentifiersState
 	case '>':
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, noError
+		return false, dataState
 	case '"':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierDoubleQuotedState, missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers
+		return false, doctypeSystemIdentifierDoubleQuotedState
 	case '\'':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierSingleQuotedState, missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers
+		return false, doctypeSystemIdentifierSingleQuotedState
 	default:
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, missingQuoteBeforeDoctypeSystemIdentifier
+		return true, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) betweenDoctypePublicAndSystemIdentifiersStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) betweenDoctypePublicAndSystemIdentifiersStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, betweenDoctypePublicAndSystemIdentifiersState, noError
+		return false, betweenDoctypePublicAndSystemIdentifiersState
 	case '>':
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, noError
+		return false, dataState
 	case '"':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierDoubleQuotedState, noError
+		return false, doctypeSystemIdentifierDoubleQuotedState
 	case '\'':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierSingleQuotedState, noError
+		return false, doctypeSystemIdentifierSingleQuotedState
 	default:
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, missingQuoteBeforeDoctypeSystemIdentifier
+		return true, bogusDoctypeState
 	}
 }
 
-func (p *HTMLTokenizer) afterDoctypeSystemKeywordStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterDoctypeSystemKeywordStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeDoctypeSystemIdentifierState, noError
+		return false, beforeDoctypeSystemIdentifierState
 	case '"':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierDoubleQuotedState, missingWhitespaceAfterDoctypeSystemKeyword
+		return false, doctypeSystemIdentifierDoubleQuotedState
 	case '\'':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierSingleQuotedState, missingWhitespaceAfterDoctypeSystemKeyword
+		return false, doctypeSystemIdentifierSingleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, missingDoctypeSystemIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, missingQuoteBeforeDoctypeSystemIdentifier
+		return true, bogusDoctypeState
 	}
 }
 
-func (p *HTMLTokenizer) beforeDoctypeSystemIdentifierStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) beforeDoctypeSystemIdentifierStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, beforeDoctypeSystemIdentifierState, noError
+		return false, beforeDoctypeSystemIdentifierState
 	case '"':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierDoubleQuotedState, missingWhitespaceAfterDoctypeSystemKeyword
+		return false, doctypeSystemIdentifierDoubleQuotedState
 	case '\'':
 		p.tokenBuilder.WriteSystemIdentifierEmpty()
-		return false, doctypeSystemIdentifierSingleQuotedState, missingWhitespaceAfterDoctypeSystemKeyword
+		return false, doctypeSystemIdentifierSingleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, missingDoctypeSystemIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.EnableForceQuirks()
-		return true, bogusDoctypeState, missingQuoteBeforeDoctypeSystemIdentifier
+		return true, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) doctypeSystemIdentifierDoubleQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) doctypeSystemIdentifierDoubleQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '"':
-		return false, afterDoctypeSystemIdentifierState, noError
+		return false, afterDoctypeSystemIdentifierState
 	case '\u0000':
 		p.tokenBuilder.WriteSystemIdentifier('\uFFFD')
-		return false, doctypeSystemIdentifierDoubleQuotedState, unexpectedNullCharacter
+		return false, doctypeSystemIdentifierDoubleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, abruptDoctypeSystemIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.WriteSystemIdentifier(r)
-		return false, doctypeSystemIdentifierDoubleQuotedState, noError
+		return false, doctypeSystemIdentifierDoubleQuotedState
 	}
 }
-func (p *HTMLTokenizer) doctypeSystemIdentifierSingleQuotedStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) doctypeSystemIdentifierSingleQuotedStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\'':
-		return false, afterDoctypeSystemIdentifierState, noError
+		return false, afterDoctypeSystemIdentifierState
 	case '\u0000':
 		p.tokenBuilder.WriteSystemIdentifier('\uFFFD')
-		return false, doctypeSystemIdentifierSingleQuotedState, unexpectedNullCharacter
+		return false, doctypeSystemIdentifierSingleQuotedState
 	case '>':
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, abruptDoctypeSystemIdentifier
+		return false, dataState
 	default:
 		p.tokenBuilder.WriteSystemIdentifier(r)
-		return false, doctypeSystemIdentifierSingleQuotedState, noError
+		return false, doctypeSystemIdentifierSingleQuotedState
 	}
 }
-func (p *HTMLTokenizer) afterDoctypeSystemIdentifierStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) afterDoctypeSystemIdentifierStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.tokenBuilder.EnableForceQuirks()
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInDoctype
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '\u0009', '\u000A', '\u000C', '\u0020':
-		return false, afterDoctypeSystemIdentifierState, noError
+		return false, afterDoctypeSystemIdentifierState
 	case '>':
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, noError
+		return false, dataState
 	default:
-		return true, bogusDoctypeState, unexpectedCharacterAfterDoctypeSystemIdentifier
+		return true, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) bogusDoctypeStateParser(r rune) (bool, tokenizerState, parseError) {
+func (p *HTMLTokenizer) bogusDoctypeStateParser(r rune, eof bool) (bool, tokenizerState) {
 
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.DocTypeToken())
-		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, noError
+	if eof {
+		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
+		return false, dataState
 	}
 	switch r {
 	case '>':
 		p.emit(p.tokenBuilder.DocTypeToken())
-		return false, dataState, noError
+		return false, dataState
 	case '\u0000':
-		return false, bogusDoctypeState, unexpectedNullCharacter
+		return false, bogusDoctypeState
 	default:
-		return false, bogusDoctypeState, noError
+		return false, bogusDoctypeState
 	}
 }
-func (p *HTMLTokenizer) cdataSectionStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) cdataSectionStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.EndOfFileToken())
-		return false, dataState, eofInCdata
+		return false, dataState
 	}
 	switch r {
 	case ']':
-		return false, cdataSectionBracketState, noError
+		return false, cdataSectionBracketState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(r))
-		return false, cdataSectionState, noError
+		return false, cdataSectionState
 	}
 }
-func (p *HTMLTokenizer) cdataSectionBracketStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) cdataSectionBracketStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.emit(p.tokenBuilder.CharacterToken(']'))
-		return true, cdataSectionState, noError
+		return true, cdataSectionState
 	}
 	switch r {
 	case ']':
-		return false, cdataSectionEndState, noError
+		return false, cdataSectionEndState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken(']'))
-		return true, cdataSectionState, noError
+		return true, cdataSectionState
 	}
 }
-func (p *HTMLTokenizer) cdataSectionEndStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		p.emit(p.tokenBuilder.CharacterToken(']'))
-		p.emit(p.tokenBuilder.CharacterToken(']'))
-		return true, cdataSectionState, noError
+func (p *HTMLTokenizer) cdataSectionEndStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		p.emit(p.tokenBuilder.CharacterToken(']'), p.tokenBuilder.CharacterToken(']'))
+		return true, cdataSectionState
 	}
 	switch r {
 	case ']':
 		p.emit(p.tokenBuilder.CharacterToken(']'))
-		return false, cdataSectionEndState, noError
+		return false, cdataSectionEndState
 	case '>':
-		return false, dataState, noError
+		return false, dataState
 	default:
-		p.emit(p.tokenBuilder.CharacterToken(']'))
-		p.emit(p.tokenBuilder.CharacterToken(']'))
-		return true, cdataSectionState, noError
+		p.emit(p.tokenBuilder.CharacterToken(']'), p.tokenBuilder.CharacterToken(']'))
+		return true, cdataSectionState
 	}
 }
 
-func (p *HTMLTokenizer) characterReferenceStateParser(r rune) (bool, tokenizerState, parseError) {
+func (p *HTMLTokenizer) characterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
 	p.tokenBuilder.ResetTempBuffer()
 	p.tokenBuilder.WriteTempBuffer('&')
 
-	if p.isEndOfFile() {
+	if eof {
 		p.flushCodePointsAsCharacterReference()
-		return true, p.returnState, noError
+		return true, p.returnState
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return true, namedCharacterReferenceState, noError
+		return true, namedCharacterReferenceState
 	case '#':
 		p.tokenBuilder.WriteTempBuffer(r)
-		return false, numericCharacterReferenceState, noError
+		return false, numericCharacterReferenceState
 	default:
 		p.flushCodePointsAsCharacterReference()
-		return true, p.returnState, noError
+		return true, p.returnState
 	}
 }
 
@@ -1828,10 +1821,10 @@ func (p *HTMLTokenizer) anyFilteredtable(filteredTable map[string][]rune, match 
 	return len(filteredTable) > 0, smallest
 }
 
-func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.flushCodePointsAsCharacterReference()
-		return false, ambiguousAmpersandState, noError
+		return false, ambiguousAmpersandState
 	}
 
 	filteredTable := make(map[string][]rune, len(charRefTable))
@@ -1852,7 +1845,7 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune) (bool, tokeni
 
 	// consume one character until there are no more matches in the filtered table
 	for i := 1; hasMatches; i++ {
-		b, err = p.htmlReader.Peek(i)
+		b, err = p.inputStream.Peek(i)
 		// if we can't peek any more bytes, leave the loop and use the currently
 		// calculated smallest match as the match.
 		if err != nil {
@@ -1872,10 +1865,10 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune) (bool, tokeni
 			// because we already dicarded the first rune in the main loop
 			// we don't need discard it again here.
 			if firstDiscard {
-				_, err = p.htmlReader.Discard(diff - 1)
+				_, err = p.inputStream.Discard(diff - 1)
 				firstDiscard = false
 			} else {
-				_, err = p.htmlReader.Discard(diff)
+				_, err = p.inputStream.Discard(diff)
 			}
 			if err != nil {
 				break
@@ -1892,33 +1885,28 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune) (bool, tokeni
 	if smallest == "" {
 		for i, mb := range match {
 			if i != 0 {
-				p.htmlReader.Discard(1)
+				p.inputStream.Discard(1)
 			}
 			p.tokenBuilder.WriteTempBuffer(rune(mb))
 		}
 		p.flushCodePointsAsCharacterReference()
-		return false, ambiguousAmpersandState, noError
+		return false, ambiguousAmpersandState
 	}
 
 	endsInSemiColon := bytes.HasSuffix(consumed, []byte{';'})
 	if p.wasConsumedByAttribute() && !endsInSemiColon {
-		next, err = p.htmlReader.Peek(1)
+		next, err = p.inputStream.Peek(1)
 		if err == nil {
 			switch next[0] {
 			case '=', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 				for _, r := range next {
 					p.tokenBuilder.WriteTempBuffer(rune(r))
-					p.htmlReader.Discard(1)
+					p.inputStream.Discard(1)
 				}
 				p.flushCodePointsAsCharacterReference()
-				return false, p.returnState, noError
+				return false, p.returnState
 			}
 		}
-	}
-
-	errorType := noError
-	if !endsInSemiColon {
-		errorType = missingSemiColonAfterCharacterReference
 	}
 	p.tokenBuilder.ResetTempBuffer()
 	for _, r := range charRefTable[string(consumed)] {
@@ -1926,12 +1914,12 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune) (bool, tokeni
 	}
 	p.flushCodePointsAsCharacterReference()
 
-	return false, p.returnState, errorType
+	return false, p.returnState
 
 }
-func (p *HTMLTokenizer) ambiguousAmpersandStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, p.returnState, noError
+func (p *HTMLTokenizer) ambiguousAmpersandStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, p.returnState
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
@@ -1940,89 +1928,89 @@ func (p *HTMLTokenizer) ambiguousAmpersandStateParser(r rune) (bool, tokenizerSt
 		} else {
 			p.emit(p.tokenBuilder.CharacterToken(r))
 		}
-		return false, ambiguousAmpersandState, noError
+		return false, ambiguousAmpersandState
 	case ';':
-		return true, p.returnState, unknownNamedCharacterReference
+		return true, p.returnState
 	default:
-		return true, p.returnState, noError
+		return true, p.returnState
 	}
 }
-func (p *HTMLTokenizer) numericCharacterReferenceStateParser(r rune) (bool, tokenizerState, parseError) {
+func (p *HTMLTokenizer) numericCharacterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
 	p.tokenBuilder.SetCharRef(0)
-	if p.isEndOfFile() {
-		return true, decimalCharacterReferenceStartState, noError
+	if eof {
+		return true, decimalCharacterReferenceStartState
 	}
 	switch r {
 	case 'x', 'X':
 		p.tokenBuilder.WriteTempBuffer(r)
-		return false, hexadecimalCharacterReferenceStartState, noError
+		return false, hexadecimalCharacterReferenceStartState
 	default:
-		return true, decimalCharacterReferenceStartState, noError
+		return true, decimalCharacterReferenceStartState
 	}
 }
-func (p *HTMLTokenizer) hexadecimalCharacterReferenceStartStateParser(r rune) (bool, tokenizerState, parseError) {
+func (p *HTMLTokenizer) hexadecimalCharacterReferenceStartStateParser(r rune, eof bool) (bool, tokenizerState) {
 
-	if p.isEndOfFile() {
+	if eof {
 		p.flushCodePointsAsCharacterReference()
-		return true, p.returnState, absenceOfDigitsInNumericCharacterReference
+		return true, p.returnState
 	}
 	switch r {
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f':
-		return true, hexadecimalCharacterReferenceState, noError
+		return true, hexadecimalCharacterReferenceState
 	default:
 		p.flushCodePointsAsCharacterReference()
-		return true, p.returnState, absenceOfDigitsInNumericCharacterReference
+		return true, p.returnState
 	}
 }
-func (p *HTMLTokenizer) decimalCharacterReferenceStartStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
+func (p *HTMLTokenizer) decimalCharacterReferenceStartStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
 		p.flushCodePointsAsCharacterReference()
-		return true, p.returnState, absenceOfDigitsInNumericCharacterReference
+		return true, p.returnState
 	}
 	switch r {
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return true, decimalCharacterReferenceState, noError
+		return true, decimalCharacterReferenceState
 	default:
 		p.flushCodePointsAsCharacterReference()
-		return true, p.returnState, absenceOfDigitsInNumericCharacterReference
+		return true, p.returnState
 	}
 }
-func (p *HTMLTokenizer) hexadecimalCharacterReferenceStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, numericCharacterReferenceEndState, missingSemiColonAfterCharacterReference
+func (p *HTMLTokenizer) hexadecimalCharacterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, numericCharacterReferenceEndState
 	}
 	switch r {
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		p.tokenBuilder.MultByCharRef(16)
 		p.tokenBuilder.AddToCharRef(int(r - 0x30))
-		return false, hexadecimalCharacterReferenceState, noError
+		return false, hexadecimalCharacterReferenceState
 	case 'A', 'B', 'C', 'D', 'E', 'F':
 		p.tokenBuilder.MultByCharRef(16)
 		p.tokenBuilder.AddToCharRef(int(r - 0x37))
-		return false, hexadecimalCharacterReferenceState, noError
+		return false, hexadecimalCharacterReferenceState
 	case 'a', 'b', 'c', 'd', 'e', 'f':
 		p.tokenBuilder.MultByCharRef(16)
 		p.tokenBuilder.AddToCharRef(int(r - 0x57))
-		return false, hexadecimalCharacterReferenceState, noError
+		return false, hexadecimalCharacterReferenceState
 	case ';':
-		return false, numericCharacterReferenceEndState, noError
+		return false, numericCharacterReferenceEndState
 	default:
-		return true, numericCharacterReferenceEndState, missingSemiColonAfterCharacterReference
+		return true, numericCharacterReferenceEndState
 	}
 }
-func (p *HTMLTokenizer) decimalCharacterReferenceStateParser(r rune) (bool, tokenizerState, parseError) {
-	if p.isEndOfFile() {
-		return true, numericCharacterReferenceEndState, missingSemiColonAfterCharacterReference
+func (p *HTMLTokenizer) decimalCharacterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
+	if eof {
+		return true, numericCharacterReferenceEndState
 	}
 	switch r {
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		p.tokenBuilder.MultByCharRef(10)
 		p.tokenBuilder.AddToCharRef(int(r - 0x30))
-		return false, decimalCharacterReferenceState, noError
+		return false, decimalCharacterReferenceState
 	case ';':
-		return false, numericCharacterReferenceEndState, noError
+		return false, numericCharacterReferenceEndState
 	default:
-		return true, numericCharacterReferenceEndState, missingSemiColonAfterCharacterReference
+		return true, numericCharacterReferenceEndState
 	}
 }
 
@@ -2056,24 +2044,18 @@ var numericCharacterReferenceEndStateTable map[int]rune = map[int]rune{
 	0x9F: 0x0178,
 }
 
-func (p *HTMLTokenizer) numericCharacterReferenceEndStateParser(r rune) (bool, tokenizerState, parseError) {
+func (p *HTMLTokenizer) numericCharacterReferenceEndStateParser(r rune, eof bool) (bool, tokenizerState) {
 	// this is the only state that isn't suppose to consume something off the bat.
-	p.htmlReader.UnreadRune()
-	err := noError
+	p.inputStream.UnreadRune()
 	if p.tokenBuilder.Cmp(0) == 0 {
-		err = nullCharacterReference
 		p.tokenBuilder.SetCharRef(0xFFFD)
 	} else if p.tokenBuilder.Cmp(0x10FFFF) == 1 {
-		err = characterReferenceOutsideUnicodeRange
 		p.tokenBuilder.SetCharRef(0xFFFD)
 	} else if isSurrogate(p.tokenBuilder.GetCharRef()) {
-		err = surrogateCharacterReference
 		p.tokenBuilder.SetCharRef(0xFFFD)
 	} else if isNonCharacter(p.tokenBuilder.GetCharRef()) {
-		err = noncharacterCharacterReference
 	} else if p.tokenBuilder.Cmp(0x0D) == 0 ||
 		(isControl(p.tokenBuilder.GetCharRef())) && !isASCIIWhitespace(p.tokenBuilder.GetCharRef()) {
-		err = controlCharacterReference
 		tableNum, ok := numericCharacterReferenceEndStateTable[p.tokenBuilder.GetCharRef()]
 		if ok {
 			p.tokenBuilder.SetCharRef(int(tableNum))
@@ -2083,85 +2065,23 @@ func (p *HTMLTokenizer) numericCharacterReferenceEndStateParser(r rune) (bool, t
 	p.tokenBuilder.ResetTempBuffer()
 	p.tokenBuilder.WriteTempBuffer(rune(p.tokenBuilder.GetCharRef()))
 	p.flushCodePointsAsCharacterReference()
-	return false, p.returnState, err
+	return false, p.returnState
 }
 
 func (p *HTMLTokenizer) emitCurrentTag() tokenizerState {
-	if p.tokenBuilder.curTagType == startTag {
-		tok := p.tokenBuilder.StartTagToken()
-		switch tok.TagName {
-		case "title", "textarea", "style", "xmp", "iframe", "noembed", "noframes", "script", "noscript",
-			"plaintext":
-			return p.emitAndWait(tok)
-		}
-		p.emit(tok)
-	} else {
+	switch p.tokenBuilder.curTagType {
+	case startTag:
+		p.emit(p.tokenBuilder.StartTagToken())
+	case endTag:
 		p.emit(p.tokenBuilder.EndTagToken())
 	}
 
 	return dataState
 }
 
-// a stateHandler is a func that takes in a rune
+// a stateHandler is a func that takes in a rune and a bool representing the endoffile
 // and returns the next state to transition to.
-type parserStateHandler func(in rune) (bool, tokenizerState, parseError)
-
-//go:generate stringer -type=parseError
-type parseError uint
-
-const (
-	noError parseError = iota
-	abruptClosingOfEmptyComment
-	abruptDoctypePublicIdentifier
-	abruptDoctypeSystemIdentifier
-	absenceOfDigitsInNumericCharacterReference
-	cdataInHTMLContent
-	characterReferenceOutsideUnicodeRange
-	controlCharacterInInputSteam
-	controlCharacterReference
-	endTagWithAttributes
-	duplicateAttribute
-	endTagWithTrailingSolidus
-	eofBeforeTagName
-	eofInCdata
-	eofInComment
-	eofInDoctype
-	eofInScriptHTMLCommentLikeText
-	eofInTag
-	incorrectlyClosedComment
-	incorrectlyOpenedComment
-	invalidCharacterSequenceAfterDoctypeName
-	invalidFirstCharacterOfTagName
-	missingAttributeValue
-	missingDoctypeName
-	missingDoctypePublicIdentifier
-	missingDoctypeSystemIdentifier
-	missingEndTagName
-	missingQuoteBeforeDoctypePublicIdentifier
-	missingQuoteBeforeDoctypeSystemIdentifier
-	missingSemiColonAfterCharacterReference
-	missingWhitespaceAfterDoctypePublicKeyword
-	missingWhitespaceAfterDoctypeSystemKeyword
-	missingWhitespaceBeforeDoctypeName
-	missingWhitespaceBetweenAttributes
-	missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers
-	nestedComment
-	noncharacterCharacterReference
-	noncharacterInInputStream
-	nonVoidHTMLElementStartTagWithTrailingSolidus
-	nullCharacterReference
-	surrogateCharacterReference
-	surrogateInInputStream
-	unexpectedCharacterAfterDoctypeSystemIdentifier
-	unexpectedCharacterInAttributeName
-	unexpectedCharacterInUnquotedAttributeValue
-	unexpectedEqualsSignBeforeAttributeName
-	unexpectedNullCharacter
-	unexpectedQuestionMakrInsteadofTagName
-	unexpectedSolidusInTag
-	unknownNamedCharacterReference
-	generalParseError
-)
+type parserStateHandler func(in rune, eof bool) (bool, tokenizerState)
 
 //go:generate stringer -type=tokenizerState
 type tokenizerState uint
@@ -2249,37 +2169,14 @@ const (
 	numericCharacterReferenceEndState
 )
 
-// Tokenize the current HTMLParser's htmlString attribute and emits
-// tokens to the token channel to be consumed by the TreeConstruction
-// process or another process that wants to use the tokens.
-// The choice to parse this as a string is that it makes it easier to iterate over
-// rune values with a for/range (go by default pulls utf-8 characters and produces runes
-// on each iteration, so we may need to switch this if we want to support other uncoding types)
-func (p *HTMLTokenizer) Tokenize() {
-	p.tokenizeStartState(dataState)
-}
-
-func (p *HTMLTokenizer) tokenizeStartState(start tokenizerState) {
-	defer func() {
-		close(p.tokenChannel)
-		p.wg.Done()
-	}()
-	lastState := p.tokenizeUntilEOF(start)
-	p.tokenizeEOF(lastState)
-}
-
-func logError(e parseError) {
-
-}
-
 func (p *HTMLTokenizer) normalizeNewlines(r rune) rune {
 	if r == '\u000D' {
-		b, err := p.htmlReader.Peek(1)
+		b, err := p.inputStream.Peek(1)
 		if err != nil {
 			return '\u000A'
 		}
 		if len(b) > 0 && b[0] == '\u000A' {
-			p.htmlReader.Discard(1)
+			p.inputStream.Discard(1)
 		}
 
 		return '\u000A'
@@ -2288,55 +2185,51 @@ func (p *HTMLTokenizer) normalizeNewlines(r rune) rune {
 	return r
 }
 
-// tokenizeUntilEOF is a helper function that performs the tokenization provided an initial
-// state. It's convinent when we want to run tests that start in the middle of the state
-// machine. It also doesn't process the EOF states, which does a lot of cleanup and allows
-// us to test how certain characters affect the tokenbuilder.
-func (p *HTMLTokenizer) tokenizeUntilEOF(nextState tokenizerState) tokenizerState {
-	defer p.wg.Done()
-	var (
-		err error
-		r   rune
-	)
+func (p *HTMLTokenizer) takeLastEmittedToken() *Token {
+	if len(p.emittedTokens) > 0 {
+		ret := p.emittedTokens[0]
+		p.emittedTokens = p.emittedTokens[1:]
+		if ret.TokenType == endOfFileToken {
+			p.done = true
+		}
+		return ret
+	}
+	return nil
+}
+
+func (p *HTMLTokenizer) Next() bool {
+	return !p.done
+}
+
+func (p *HTMLTokenizer) Token(progress *Progress) (*Token, error) {
+	// the tree constructor needs to be able to change the state of the tokenizer.
+	// if TokenizerState is set, the tree constructor set it.
+	p.adjustedCurrentNode = progress.AdjustedCurrentNode
+	if progress.TokenizerState != nil {
+		p.currentState = *progress.TokenizerState
+	}
+
+	// some states emit more than 1 token at a time and sometimes no tokens.
+	// loop until at least 1 token is emitted and then take them.
 	for {
-		reconsume := true
-		r, _, err = p.htmlReader.ReadRune()
-		if err != nil && err == io.EOF {
-			p.eof = true
-			break
+		token := p.takeLastEmittedToken()
+		if token != nil {
+			return token, nil
 		}
 
-		r = p.normalizeNewlines(r)
-		// if the previous state says to reconsume,
-		// use the same rune
-		for reconsume {
-			reconsume, nextState = p.processRune(r, nextState)
+		r, _, err := p.inputStream.ReadRune()
+		if err != nil && err != io.EOF {
+			return nil, err
 		}
+
+		p.processRune(p.normalizeNewlines(r), err == io.EOF)
 	}
-
-	return nextState
 }
 
-// tokenizeEOF takes the last state before an EOF was found and runs through its state machine calling
-// any reconsume or EOF handlers. Some handlers don't have a EOF handler, so that is why we have to
-// loop through any reconsumes until we get one.
-func (p *HTMLTokenizer) tokenizeEOF(nextState tokenizerState) {
-	var (
-		reconsume bool = true
-		r         rune
-	)
-
+func (p *HTMLTokenizer) processRune(r rune, eof bool) {
+	reconsume := true
 	for reconsume {
-		reconsume, nextState = p.processRune(r, nextState)
+		reconsume, p.currentState = p.stateToParser(p.currentState)(r, eof)
+		fmt.Printf("[TOKEN]rune: %s , mode: %s\n", string(r), p.currentState)
 	}
-}
-
-func (p *HTMLTokenizer) processRune(r rune, nextState tokenizerState) (bool, tokenizerState) {
-	fmt.Printf("[TOKEN]rune: %s , mode: %s\n", string(r), nextState)
-	reconsume, nextState, parseErr := p.mappings[nextState](r)
-	if p.config[debug] == 1 {
-		logError(parseErr)
-	}
-
-	return reconsume, nextState
 }

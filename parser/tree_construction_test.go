@@ -125,18 +125,14 @@ func runTreeConstructorTest(test treeTest, t *testing.T, scriptingEnabled bool) 
 				t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)
 			}
 		} else {
-			p, tcc, sc, wg := NewHTMLTokenizer(test.in, htmlParserConfig{debug: 0})
-			tc := NewHTMLTreeConstructor(tcc, sc, wg)
-			tc.scriptingEnabled = scriptingEnabled
-			wg.Add(3)
-			go tc.ConstructTree()
-			go p.Tokenize()
+			p := NewParser(strings.NewReader(test.in))
+			tree, err := p.Start()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			wg.Wait()
-			s := tc.HTMLDocument.Node.String()
-
-			if s != test.expected {
-				t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, s)
+			if tree.String() != test.expected {
+				t.Errorf("Wrong document. Expected: \n\n%s\nGot: \n\n%s", test.expected, tree.String())
 			}
 		}
 	})

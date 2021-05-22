@@ -1,9 +1,11 @@
 {
     "tests": [
-        {
-        "description":"Start Tag w/attribute no quotes",
-        "input":"<h a=b>",
-        "output":[["StartTag", "h", {"a":"b"}]]
-    }
+        {"description":"Permitted slash but in close tag",
+"input":"</br/>",
+"output":[["EndTag", "br"]],
+"errors":[
+    { "code": "end-tag-with-trailing-solidus", "line": 1, "col": 6 }
+] 
+
     ]
 }

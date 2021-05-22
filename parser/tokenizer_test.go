@@ -79,23 +79,21 @@ func TestTokenizerAttributeAccuracy(t *testing.T) {
 func runTestTokenizerAttributeAccuracy(tt tokezinerAttributeAccuracyTestcase, t *testing.T) {
 	t.Run(tt.inHTML, func(t *testing.T) {
 		t.Parallel()
-		retChan := make(chan *Token, 1)
-		p, tc, _, wg := NewHTMLTokenizer(tt.inHTML, nil)
-
-		go func(tc chan *Token, retChan chan *Token) {
-			token := <-tc
-			retChan <- token
-		}(tc, retChan)
-
-		wg.Add(2)
-		go p.Tokenize()
-		i := <-retChan
-		for k, v := range tt.attrs {
-			if _, ok := i.Attributes[k]; !ok {
-				t.Errorf("Expected to find a key of %s, didn't find one\n", k)
-			} else {
-				if v != string(i.Attributes[k].Value) {
-					t.Errorf("Expected %s as the value, got %s\n", v, i.Attributes[k].Value)
+		p := NewHTMLTokenizer(strings.NewReader(tt.inHTML))
+		startState := dataState
+		progress := MakeProgress(nil, &startState)
+		for p.Next() {
+			token, err := p.Token(progress)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for k, v := range tt.attrs {
+				if _, ok := token.Attributes[k]; !ok {
+					t.Errorf("Expected to find a key of %s, didn't find one\n", k)
+				} else {
+					if v != string(token.Attributes[k].Value) {
+						t.Errorf("Expected %s as the value, got %s\n", v, token.Attributes[k].Value)
+					}
 				}
 			}
 		}
@@ -685,11 +683,8 @@ func runStateParserTest(testcase stateMachineTestCase, t *testing.T) {
 	testName := fmt.Sprintf("%s-%#U", testcase.startingState, testcase.inRune)
 	t.Run(testName, func(t *testing.T) {
 		t.Parallel()
-		p, tcc, sc, wg := NewHTMLTokenizer("", htmlParserConfig{debug: 0})
-		tc := NewHTMLTreeConstructor(tcc, sc, wg)
-		go tc.ConstructTree()
-
-		reconsume, state, _ := p.mappings[testcase.startingState](testcase.inRune)
+		p := NewHTMLTokenizer(strings.NewReader(""))
+		reconsume, state := p.stateToParser(testcase.startingState)(testcase.inRune, false)
 		if state != testcase.nextExpectedState {
 			t.Errorf("Expected %d state, got %d", testcase.nextExpectedState, state)
 		}
@@ -737,10 +732,22 @@ func TestParseStatefulness(t *testing.T) {
 		{"u", scriptDataDoubleEscapeStartState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.TempBuffer(), "u" }, nil},
 		{"U", scriptDataDoubleEscapeEndState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.TempBuffer(), "u" }, nil},
 		{"u", scriptDataDoubleEscapeEndState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.TempBuffer(), "u" }, nil},
-		{"U", attributeNameState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeKey.String(), "u" }, nil},
-		{"u", attributeNameState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeKey.String(), "u" }, nil},
-		{"1", attributeNameState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeKey.String(), "1" }, nil},
-		{"\u0000", attributeNameState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeKey.String(), "\uFFFD" }, nil},
+		{"U", attributeNameState, func(p *HTMLTokenizer) (string, string) {
+			_, ok := p.tokenBuilder.attributes["u"]
+			return fmt.Sprintf("%t", ok), "true"
+		}, nil},
+		{"u", attributeNameState, func(p *HTMLTokenizer) (string, string) {
+			_, ok := p.tokenBuilder.attributes["u"]
+			return fmt.Sprintf("%t", ok), "true"
+		}, nil},
+		{"1", attributeNameState, func(p *HTMLTokenizer) (string, string) {
+			_, ok := p.tokenBuilder.attributes["1"]
+			return fmt.Sprintf("%t", ok), "true"
+		}, nil},
+		{"\u0000", attributeNameState, func(p *HTMLTokenizer) (string, string) {
+			_, ok := p.tokenBuilder.attributes["\uFFFD"]
+			return fmt.Sprintf("%t", ok), "true"
+		}, nil},
 		{"\u0000", attributeValueDoubleQuotedState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeValue.String(), "\uFFFD" }, nil},
 		{"a", attributeValueDoubleQuotedState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeValue.String(), "a" }, nil},
 		{"A", attributeValueDoubleQuotedState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.attributeValue.String(), "A" }, nil},
@@ -824,19 +831,19 @@ func TestParseStatefulness(t *testing.T) {
 		{"\u0058", numericCharacterReferenceState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.TempBuffer(), "\u0058" }, nil},
 		{"\u0078", numericCharacterReferenceState, func(p *HTMLTokenizer) (string, string) { return p.tokenBuilder.TempBuffer(), "\u0078" }, nil},
 		{"1", hexadecimalCharacterReferenceState, func(p *HTMLTokenizer) (string, string) {
-			return fmt.Sprintf("%d", p.tokenBuilder.characterReferenceCode), "1"
+			return fmt.Sprintf("%d", p.tokenBuilder.GetCharRef()), "1"
 		}, nil},
 		{"22", hexadecimalCharacterReferenceState, func(p *HTMLTokenizer) (string, string) {
-			return fmt.Sprintf("%d", p.tokenBuilder.characterReferenceCode), "34"
+			return fmt.Sprintf("%d", p.tokenBuilder.GetCharRef()), "34"
 		}, nil},
 		{"FF", hexadecimalCharacterReferenceState, func(p *HTMLTokenizer) (string, string) {
-			return fmt.Sprintf("%d", p.tokenBuilder.characterReferenceCode), "255"
+			return fmt.Sprintf("%d", p.tokenBuilder.GetCharRef()), "255"
 		}, nil},
 		{"ff", hexadecimalCharacterReferenceState, func(p *HTMLTokenizer) (string, string) {
-			return fmt.Sprintf("%d", p.tokenBuilder.characterReferenceCode), "255"
+			return fmt.Sprintf("%d", p.tokenBuilder.GetCharRef()), "255"
 		}, nil},
 		{"134", decimalCharacterReferenceState, func(p *HTMLTokenizer) (string, string) {
-			return fmt.Sprintf("%d", p.tokenBuilder.characterReferenceCode), "134"
+			return fmt.Sprintf("%d", p.tokenBuilder.GetCharRef()), "8224"
 		}, nil},
 
 		// come back to numeric character reference end state
@@ -852,22 +859,17 @@ func runParserStatefulnessTest(testcase parserStatefulnessTestCase, t *testing.T
 	testName := fmt.Sprintf("%s-%s", testcase.startState, testcase.inHTML)
 	t.Run(testName, func(t *testing.T) {
 		t.Parallel()
-		p, tcc, sc, wg := NewHTMLTokenizer(testcase.inHTML, htmlParserConfig{debug: 0})
-		tc := NewHTMLTreeConstructor(tcc, sc, wg)
-		wg.Add(1)
-		go tc.ConstructTree()
-
+		p := NewParser(strings.NewReader(testcase.inHTML))
 		// run through all the runes and then check the state at the end.
 		// I'm also wanting to start a certain state so that is what I am doing with this function
 		// helper.
 		if testcase.setup != nil {
-			testcase.setup(p)
+			testcase.setup(p.Tokenizer)
 		}
-		go p.tokenizeUntilEOF(testcase.startState)
-		wg.Wait()
-		answer, expected := testcase.testFunc(p)
+		p.startAt(&testcase.startState)
+		answer, expected := testcase.testFunc(p.Tokenizer)
 		if expected != answer {
-			t.Errorf("Expected %X, but got %X", expected, answer)
+			t.Errorf("Expected %s, but got %s", expected, answer)
 		}
 	})
 }
@@ -1008,7 +1010,7 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 					tb.WriteSystemIdentifier(v)
 				}
 			}
-			tokens = append(tokens, tb.DocTypeToken())
+			tokens = append(tokens, *tb.DocTypeToken())
 		case "StartTag":
 			if len(v) >= 2 && v[1] != nil {
 				for _, n := range v[1].(string) {
@@ -1035,7 +1037,7 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 				}
 			}
 
-			tokens = append(tokens, tb.StartTagToken())
+			tokens = append(tokens, *tb.StartTagToken())
 		case "EndTag":
 			if len(v) >= 2 && v[1] != nil {
 				s := formatString(v[1], doubleEscape)
@@ -1044,7 +1046,7 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 				}
 			}
 
-			tokens = append(tokens, tb.EndTagToken())
+			tokens = append(tokens, *tb.EndTagToken())
 		case "Comment":
 			if len(v) >= 1 && v[1] != nil {
 				s := formatString(v[1], doubleEscape)
@@ -1052,12 +1054,12 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 					tb.WriteData(r)
 				}
 			}
-			tokens = append(tokens, tb.CommentToken())
+			tokens = append(tokens, *tb.CommentToken())
 		case "Character":
 			if len(v) >= 2 && v[1] != nil {
 				s := formatString(v[1], doubleEscape)
 				for _, r := range s {
-					tokens = append(tokens, tb.CharacterToken(r))
+					tokens = append(tokens, *tb.CharacterToken(r))
 				}
 			}
 		}
@@ -1092,52 +1094,32 @@ func runHTML5Test(test HTML5Test, t *testing.T) {
 		if len(test.InitialStates) == 0 {
 			test.InitialStates = []string{"Data state"}
 		}
-		o := formatOutputs(test.Output, test.DoubleEscaped)
-		for i := 0; i < len(test.InitialStates); i++ {
-			p, tc, sc, wg := NewHTMLTokenizer(test.Input, htmlParserConfig{debug: 0})
-			wg.Add(3)
-			pc := make(chan *Token, 10)
-			htc := NewHTMLTreeConstructor(pc, sc, wg)
-			go htc.ConstructTree()
-			errorChan := make(chan error, 5)
-			go func(tokenChan, proxyChan chan *Token, errorChan chan error, expectedTokens []Token) {
-				defer close(errorChan)
-				j := 0
-				for tok := range tokenChan {
-					if j >= len(expectedTokens) {
-						if tok.TokenType == endOfFileToken {
-							break
-						}
-						errorChan <- fmt.Errorf("Got too many tokens. Expected %d, tried for %d", len(expectedTokens), j+1)
-						break
-					}
-					if !tok.Equal(&expectedTokens[j]) {
-						errorChan <- fmt.Errorf("Got the wrong token. Expected %s, got %s", &expectedTokens[j], tok)
-					}
-					j++
+		expectedTokens := formatOutputs(test.Output, test.DoubleEscaped)
+		for _, initState := range test.InitialStates {
+			p := NewParser(strings.NewReader(test.Input))
 
-					proxyChan <- tok
-				}
-
-				if j != len(expectedTokens) {
-					errorChan <- fmt.Errorf("Got the wrong number of tokens. Expected %d, got %d", len(expectedTokens), j)
-				}
-			}(tc, pc, errorChan, o)
-
-			initState, err := getInitState(test.InitialStates[i])
+			iState, err := getInitState(initState)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
+
 			if test.LastStartTag != "" {
-				p.lastEmittedStartTagName = test.LastStartTag
+				p.Tokenizer.lastEmittedStartTagName = test.LastStartTag
 			}
-			go func() {
-				defer close(p.tokenChannel)
-				lastState := p.tokenizeUntilEOF(initState)
-				p.tokenizeEOF(lastState)
-			}()
-			for err := range errorChan {
-				t.Error(err)
+
+			tokens, err := p.startAt(&iState)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// the expected tokens don't include the EOF token, but `tokens` does
+			tokens = tokens[:len(tokens)-1]
+			if len(tokens) != len(expectedTokens) {
+				t.Fatalf("Unexpected number of tokens. Expected %d, got %d", len(expectedTokens), len(tokens))
+			}
+			for i, token := range tokens {
+				if !token.Equal(&expectedTokens[i]) {
+					t.Fatalf("Got the wrong token. Expected %s, got %s", &expectedTokens[i], token)
+				}
 			}
 		}
 	})

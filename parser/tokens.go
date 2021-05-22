@@ -286,12 +286,18 @@ func (t *TokenBuilder) TempBuffer() string {
 	return t.tempBuffer.String()
 }
 
-// SetCharRef sets the internal character reference count to zero.
+func (t *TokenBuilder) TempBufferCharTokens() []*Token {
+	tokens := []*Token{}
+	for _, v := range t.TempBuffer() {
+		tokens = append(tokens, t.CharacterToken(v))
+	}
+	return tokens
+}
+
 func (t *TokenBuilder) SetCharRef(i int) {
 	t.characterReferenceCode = big.NewInt(int64(i))
 }
 
-// GetCharRef sets the internal character reference count to zero.
 func (t *TokenBuilder) GetCharRef() int {
 	return int(t.characterReferenceCode.Int64())
 }
@@ -313,8 +319,8 @@ func (t *TokenBuilder) MultByCharRef(i int) {
 
 // StartTagToken creates a start tag token from the builder
 // contents.
-func (t *TokenBuilder) StartTagToken() Token {
-	return Token{
+func (t *TokenBuilder) StartTagToken() *Token {
+	return &Token{
 		TokenType:   startTagToken,
 		TagName:     t.name.String(),
 		Attributes:  t.attributes,
@@ -324,8 +330,8 @@ func (t *TokenBuilder) StartTagToken() Token {
 
 // EndTagToken creates an end tag token from the builder
 // contents.
-func (t *TokenBuilder) EndTagToken() Token {
-	return Token{
+func (t *TokenBuilder) EndTagToken() *Token {
+	return &Token{
 		TokenType:   endTagToken,
 		TagName:     t.name.String(),
 		Attributes:  t.attributes,
@@ -335,31 +341,31 @@ func (t *TokenBuilder) EndTagToken() Token {
 
 // CharacterToken creates a character token from the builder
 // contents.
-func (t *TokenBuilder) CharacterToken(r rune) Token {
-	return Token{
+func (t *TokenBuilder) CharacterToken(r rune) *Token {
+	return &Token{
 		TokenType: characterToken,
 		Data:      string(r),
 	}
 }
 
 // EndOfFileToken create an end of file token.
-func (t *TokenBuilder) EndOfFileToken() Token {
-	return Token{
+func (t *TokenBuilder) EndOfFileToken() *Token {
+	return &Token{
 		TokenType: endOfFileToken,
 	}
 }
 
 // CommentToken creates a comment token from the builder contents.
-func (t *TokenBuilder) CommentToken() Token {
-	return Token{
+func (t *TokenBuilder) CommentToken() *Token {
+	return &Token{
 		TokenType: commentToken,
 		Data:      t.data.String(),
 	}
 }
 
 // DocTypeToken creates a doc type token from the builder contents.
-func (t *TokenBuilder) DocTypeToken() Token {
-	return Token{
+func (t *TokenBuilder) DocTypeToken() *Token {
+	return &Token{
 		TokenType:        docTypeToken,
 		TagName:          t.name.String(),
 		ForceQuirks:      t.forceQuirks,

@@ -1,0 +1,11 @@
+#data
+<svg><![CDATA[foo]]>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,20): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "foo"

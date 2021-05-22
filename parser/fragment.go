@@ -79,12 +79,10 @@ func SerializeHTMLFragement(fragment *spec.Node) string {
 }
 
 func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scriptingEnabled bool) []*spec.Node {
-	tokenizer, tokChan, stateChan, wg := NewHTMLTokenizer(input, htmlParserConfig{})
-	treeConstructor := NewHTMLTreeConstructor(tokChan, stateChan, wg)
-
-	treeConstructor.context = context
-	treeConstructor.quirksMode = quirks
-	treeConstructor.createdBy = htmlFragmentParsingAlgorithm
+	parser := NewParser(strings.NewReader(input))
+	parser.TreeConstructor.context = context
+	parser.TreeConstructor.quirksMode = quirks
+	parser.TreeConstructor.createdBy = htmlFragmentParsingAlgorithm
 	var startState tokenizerState
 	switch context.NodeName {
 	case "title", "textarea":
@@ -104,39 +102,31 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 	default:
 		startState = dataState
 	}
-	wg.Add(3)
-	go tokenizer.tokenizeStartState(startState)
+	parser.startAt(&startState)
 
-	n := spec.NewDOMElement(treeConstructor.HTMLDocument.Node, "html", spec.Htmlns)
-	n.OwnerDocument = treeConstructor.HTMLDocument.Node
-	treeConstructor.HTMLDocument.AppendChild(n)
-	treeConstructor.stackOfOpenElements.Push(n)
+	n := spec.NewDOMElement(parser.TreeConstructor.HTMLDocument.Node, "html", spec.Htmlns)
+	n.OwnerDocument = parser.TreeConstructor.HTMLDocument.Node
+	parser.TreeConstructor.HTMLDocument.AppendChild(n)
+	parser.TreeConstructor.stackOfOpenElements.Push(n)
 
 	if context.NodeName == "template" {
-		treeConstructor.stackOfTemplateInsertionModes[0] = inTemplate
+		parser.TreeConstructor.stackOfTemplateInsertionModes[0] = inTemplate
 	}
 
-	/*tok := &Token{
-		TokenType:  startTagToken,
-		TagName:    string(context.NodeName),
-		Attributes: context.Attributes.Attrs,
-	}*/
-	im := treeConstructor.resetInsertionModeWithContext(context)
+	parser.TreeConstructor.curInsertionMode = parser.TreeConstructor.resetInsertionModeWithContext(context)
 	var next *spec.Node = context.ParentNode
 	for {
 		if next == nil {
 			break
 		}
 		if next.NodeName == "form" {
-			treeConstructor.formElementPointer = next
+			parser.TreeConstructor.formElementPointer = next
 			break
 		}
 
 		next = next.ParentNode
 	}
 
-	go treeConstructor.constructTreeStartState(im)
-	wg.Wait()
-
-	return n.ChildNodes
+	parser.startAt(&startState)
+	return parser.TreeConstructor.HTMLDocument.Node.ChildNodes
 }

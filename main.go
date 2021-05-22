@@ -1,8 +1,17 @@
 package main
 
-import "github.com/heathj/gobrowse/parser"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/heathj/gobrowse/parser"
+)
 
 func main() {
-	p, _, _, _ := parser.NewHTMLTokenizer("<html><head></head><body></body>", nil)
-	p.Tokenize()
+	p := parser.NewParser(strings.NewReader("&#x0000;"))
+	tokens, err := p.Start()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%+v", tokens)
 }
