@@ -41,17 +41,17 @@ func (p *Parser) Start() (*spec.Node, error) {
 	return p.TreeConstructor.HTMLDocument.Node, nil
 }
 
-func (p *Parser) startAt(startState *tokenizerState) ([]*Token, error) {
+func (p *Parser) startAt(startState *tokenizerState) ([]Token, error) {
 	var (
 		progress *Progress = MakeProgress(nil, startState)
-		tokens             = []*Token{}
+		tokens             = []Token{}
 	)
 	for p.Tokenizer.Next() {
 		t, err := p.Tokenizer.Token(progress)
 		if err != nil {
 			return nil, err
 		}
-		tokens = append(tokens, t)
+		tokens = append(tokens, *t)
 		progress = p.TreeConstructor.ProcessToken(t)
 	}
 

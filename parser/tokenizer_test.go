@@ -1118,7 +1118,7 @@ func runHTML5Test(test HTML5Test, t *testing.T) {
 			}
 			for i, token := range tokens {
 				if !token.Equal(&expectedTokens[i]) {
-					t.Fatalf("Got the wrong token. Expected %s, got %s", &expectedTokens[i], token)
+					t.Fatalf("Got the wrong token. Expected %s, got %s", &expectedTokens[i], &token)
 				}
 			}
 		}
