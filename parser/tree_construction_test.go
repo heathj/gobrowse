@@ -54,7 +54,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := ioutil.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := ioutil.ReadFile("./tests/tree_construction/passing.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -99,7 +99,7 @@ func TestTreeConstructor(t *testing.T) {
 	for _, test := range tests {
 		if test.scriptMode == scriptBoth {
 			runTreeConstructorTest(test, t, false)
-			//runTreeConstructorTest(test, t, true)
+			runTreeConstructorTest(test, t, true)
 		} else {
 			if test.scriptMode == scriptOn {
 				runTreeConstructorTest(test, t, true)
@@ -126,6 +126,7 @@ func runTreeConstructorTest(test treeTest, t *testing.T, scriptingEnabled bool) 
 			}
 		} else {
 			p := NewParser(strings.NewReader(test.in))
+			p.TreeConstructor.scriptingEnabled = scriptingEnabled
 			tree, err := p.Start()
 			if err != nil {
 				t.Fatal(err)

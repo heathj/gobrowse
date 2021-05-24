@@ -50,26 +50,6 @@ type HTMLTreeConstructor struct {
 	mappings                                      map[insertionMode]treeConstructionModeHandler
 }
 
-type formattingElement uint
-
-const (
-	markerFElement formattingElement = iota
-	aFElement
-	bFElement
-	bigFElement
-	codeFElement
-	emFElement
-	fontFElement
-	iFElement
-	nobrFElement
-	sFElement
-	smallFElement
-	strikeFElement
-	strongFElement
-	ttFElement
-	uFElement
-)
-
 // NewHTMLTreeConstructor creates an HTMLTreeConstructor.
 func NewHTMLTreeConstructor() *HTMLTreeConstructor {
 	tr := HTMLTreeConstructor{

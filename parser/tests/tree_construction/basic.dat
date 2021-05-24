@@ -1,11 +1,13 @@
 #data
-<svg><![CDATA[foo]]>
+<noscript><!--</noscript>--></noscript>
 #errors
-(1,5): expected-doctype-but-got-start-tag
-(1,20): expected-closing-tag-but-got-eof
+(1,10): expected-doctype-but-got-start-tag
+(1,39): unexpected-end-tag
+#script-on
 #document
 | <html>
 |   <head>
+|     <noscript>
+|       "<!--"
 |   <body>
-|     <svg svg>
-|       "foo"
+|     "-->"

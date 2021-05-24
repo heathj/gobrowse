@@ -102,7 +102,6 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 	default:
 		startState = dataState
 	}
-	parser.startAt(&startState)
 
 	n := spec.NewDOMElement(parser.TreeConstructor.HTMLDocument.Node, "html", spec.Htmlns)
 	n.OwnerDocument = parser.TreeConstructor.HTMLDocument.Node
@@ -128,5 +127,5 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 	}
 
 	parser.startAt(&startState)
-	return parser.TreeConstructor.HTMLDocument.Node.ChildNodes
+	return n.ChildNodes
 }

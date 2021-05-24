@@ -82,18 +82,17 @@ func runTestTokenizerAttributeAccuracy(tt tokezinerAttributeAccuracyTestcase, t 
 		p := NewHTMLTokenizer(strings.NewReader(tt.inHTML))
 		startState := dataState
 		progress := MakeProgress(nil, &startState)
-		for p.Next() {
-			token, err := p.Token(progress)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for k, v := range tt.attrs {
-				if _, ok := token.Attributes[k]; !ok {
-					t.Errorf("Expected to find a key of %s, didn't find one\n", k)
-				} else {
-					if v != string(token.Attributes[k].Value) {
-						t.Errorf("Expected %s as the value, got %s\n", v, token.Attributes[k].Value)
-					}
+
+		token, err := p.Token(progress)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for k, v := range tt.attrs {
+			if _, ok := token.Attributes[k]; !ok {
+				t.Errorf("Expected to find a key of %s, didn't find one\n", k)
+			} else {
+				if v != string(token.Attributes[k].Value) {
+					t.Errorf("Expected %s as the value, got %s\n", v, token.Attributes[k].Value)
 				}
 			}
 		}
