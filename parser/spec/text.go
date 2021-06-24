@@ -1,14 +1,12 @@
 package spec
 
-import "github.com/heathj/gobrowse/parser/webidl"
-
 // https:domspec.whatwg.org/#text
 type Text struct {
-	wholeText webidl.DOMString
+	wholeText string
 	*CharacterData
 }
 
-func NewText(data webidl.DOMString) *Text {
+func NewText(data string) *Text {
 	return &Text{
 		wholeText: data,
 		CharacterData: &CharacterData{

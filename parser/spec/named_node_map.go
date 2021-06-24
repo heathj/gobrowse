@@ -2,14 +2,12 @@ package spec
 
 import (
 	"strings"
-
-	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 func NewNamedNodeMap(attrs map[string]*Attr, oe *Node) *NamedNodeMap {
-	a := make(map[webidl.DOMString]*Attr, len(attrs))
+	a := make(map[string]*Attr, len(attrs))
 	for k, v := range attrs {
-		a[webidl.DOMString(k)] = NewAttr(k, v, oe)
+		a[k] = NewAttr(k, v, oe)
 	}
 	return &NamedNodeMap{
 		Length:            len(a),
@@ -20,21 +18,21 @@ func NewNamedNodeMap(attrs map[string]*Attr, oe *Node) *NamedNodeMap {
 
 type NamedNodeMap struct {
 	Length            int
-	Attrs             map[webidl.DOMString]*Attr
+	Attrs             map[string]*Attr
 	AssociatedElement *Node
 }
 
-func (n *NamedNodeMap) GetNamedItem(qn webidl.DOMString) *Attr {
+func (n *NamedNodeMap) GetNamedItem(qn string) *Attr {
 	return n.getAttributeByName(qn)
 
 }
 
-func (n *NamedNodeMap) getAttributeByName(qn webidl.DOMString) *Attr {
+func (n *NamedNodeMap) getAttributeByName(qn string) *Attr {
 	if n.AssociatedElement.OwnerDocument != nil &&
 		n.AssociatedElement.Element.NamespaceURI == Htmlns &&
 		n.AssociatedElement.OwnerDocument.NodeType == DocumentNode &&
 		n.AssociatedElement.OwnerDocument.Type == "html" {
-		qn = webidl.DOMString(strings.ToLower(string(qn)))
+		qn = strings.ToLower(string(qn))
 	}
 
 	if v, ok := n.Attrs[qn]; ok {
@@ -44,7 +42,7 @@ func (n *NamedNodeMap) getAttributeByName(qn webidl.DOMString) *Attr {
 	return nil
 }
 
-func (n *NamedNodeMap) getAttributeByNSLocalName(ns Namespace, ln webidl.DOMString) *Attr {
+func (n *NamedNodeMap) getAttributeByNSLocalName(ns Namespace, ln string) *Attr {
 	if v, ok := n.Attrs[ln]; ok {
 		if v.Namespace == ns {
 			return v
@@ -72,7 +70,7 @@ func (n *NamedNodeMap) SetNamedItem(s *Attr) *Attr {
 	return oldAttr
 }
 
-func (n *NamedNodeMap) GetNamedItemNS(ns Namespace, ln webidl.DOMString) *Attr {
+func (n *NamedNodeMap) GetNamedItemNS(ns Namespace, ln string) *Attr {
 	return n.getAttributeByNSLocalName(ns, ln)
 }
 func (n *NamedNodeMap) SetNamedItemNS(attr *Attr) *Attr { return nil }

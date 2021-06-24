@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/heathj/gobrowse/parser/spec"
-	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 //go:generate stringer -type=tokenType
@@ -40,7 +40,6 @@ type Token struct {
 	ForceQuirks      bool
 	SelfClosing      bool
 	Data             string
-	Special          bool
 }
 
 func (t *Token) String() string {
@@ -68,6 +67,28 @@ func (t *Token) String() string {
 	}
 
 	return ""
+}
+
+var tokenPool = sync.Pool{
+	New: func() interface{} {
+		return &Token{}
+	},
+}
+
+func MakeToken(tokenType tokenType) *Token {
+	token := tokenPool.Get().(*Token)
+	token.TokenType = tokenType
+	return token
+}
+
+func (t *Token) Reset() {
+	t.Attributes = map[string]*spec.Attr{}
+	t.Data = ""
+	t.ForceQuirks = false
+	t.SelfClosing = false
+	t.TagName = ""
+	t.SystemIdentifier = ""
+	t.PublicIdentifier = ""
 }
 
 // Equal compares if two tokens are equal to each other.
@@ -137,16 +158,16 @@ type TokenBuilder struct {
 	characterReferenceCode *big.Int
 }
 
-func newTokenBuilder() *TokenBuilder {
+func MakeTokenBuilder() *TokenBuilder {
 	return &TokenBuilder{
 		attributes:             make(map[string]*spec.Attr),
 		characterReferenceCode: big.NewInt(0),
 	}
 }
 
-// NewToken clears all the builders and attributes. We don't include
+// Reset clears all the builders and attributes. We don't include
 // the temp buffer here because I am not sure where I need to clear that one yet.
-func (t *TokenBuilder) NewToken() {
+func (t *TokenBuilder) Reset() {
 	t.attributes = make(map[string]*spec.Attr)
 	t.attributeKey.Reset()
 	t.attributeValue.Reset()
@@ -155,6 +176,7 @@ func (t *TokenBuilder) NewToken() {
 	t.systemID.Reset()
 	t.publicID.WriteString(missing)
 	t.systemID.WriteString(missing)
+	t.tempBuffer.Reset()
 	t.data.Reset()
 	t.name.Reset()
 	t.selfClosing = false
@@ -259,7 +281,7 @@ func (t *TokenBuilder) CommitAttribute() {
 		v := t.attributeValue.String()
 
 		if k != "" {
-			t.attributes[k] = &spec.Attr{LocalName: webidl.DOMString(k), Value: webidl.DOMString(v), Namespace: spec.Htmlns}
+			t.attributes[k] = &spec.Attr{LocalName: k, Value: v, Namespace: spec.Htmlns}
 		}
 	}
 	t.attributeKey.Reset()
@@ -286,8 +308,8 @@ func (t *TokenBuilder) TempBuffer() string {
 	return t.tempBuffer.String()
 }
 
-func (t *TokenBuilder) TempBufferCharTokens() []*Token {
-	tokens := []*Token{}
+func (t *TokenBuilder) TempBufferCharTokens() []Token {
+	tokens := []Token{}
 	for _, v := range t.TempBuffer() {
 		tokens = append(tokens, t.CharacterToken(v))
 	}
@@ -319,57 +341,50 @@ func (t *TokenBuilder) MultByCharRef(i int) {
 
 // StartTagToken creates a start tag token from the builder
 // contents.
-func (t *TokenBuilder) StartTagToken() *Token {
-	return &Token{
-		TokenType:   startTagToken,
-		TagName:     t.name.String(),
-		Attributes:  t.attributes,
-		SelfClosing: t.selfClosing,
-	}
+func (t *TokenBuilder) StartTagToken() Token {
+	token := MakeToken(startTagToken)
+	token.TagName = t.name.String()
+	token.Attributes = t.attributes
+	token.SelfClosing = t.selfClosing
+	return *token
 }
 
 // EndTagToken creates an end tag token from the builder
 // contents.
-func (t *TokenBuilder) EndTagToken() *Token {
-	return &Token{
-		TokenType:   endTagToken,
-		TagName:     t.name.String(),
-		Attributes:  t.attributes,
-		SelfClosing: t.selfClosing,
-	}
+func (t *TokenBuilder) EndTagToken() Token {
+	token := MakeToken(endTagToken)
+	token.TagName = t.name.String()
+	token.Attributes = t.attributes
+	token.SelfClosing = t.selfClosing
+	return *token
 }
 
 // CharacterToken creates a character token from the builder
 // contents.
-func (t *TokenBuilder) CharacterToken(r rune) *Token {
-	return &Token{
-		TokenType: characterToken,
-		Data:      string(r),
-	}
+func (t *TokenBuilder) CharacterToken(r rune) Token {
+	token := MakeToken(characterToken)
+	token.Data = string(r)
+	return *token
 }
 
 // EndOfFileToken create an end of file token.
-func (t *TokenBuilder) EndOfFileToken() *Token {
-	return &Token{
-		TokenType: endOfFileToken,
-	}
+func (t *TokenBuilder) EndOfFileToken() Token {
+	return *MakeToken(endOfFileToken)
 }
 
 // CommentToken creates a comment token from the builder contents.
-func (t *TokenBuilder) CommentToken() *Token {
-	return &Token{
-		TokenType: commentToken,
-		Data:      t.data.String(),
-	}
+func (t *TokenBuilder) CommentToken() Token {
+	token := MakeToken(commentToken)
+	token.Data = t.data.String()
+	return *token
 }
 
 // DocTypeToken creates a doc type token from the builder contents.
-func (t *TokenBuilder) DocTypeToken() *Token {
-	return &Token{
-		TokenType:        docTypeToken,
-		TagName:          t.name.String(),
-		ForceQuirks:      t.forceQuirks,
-		PublicIdentifier: t.publicID.String(),
-		SystemIdentifier: t.systemID.String(),
-	}
+func (t *TokenBuilder) DocTypeToken() Token {
+	token := MakeToken(docTypeToken)
+	token.TagName = t.name.String()
+	token.ForceQuirks = t.forceQuirks
+	token.PublicIdentifier = t.publicID.String()
+	token.SystemIdentifier = t.systemID.String()
+	return *token
 }

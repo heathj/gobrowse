@@ -1,7 +1,5 @@
 package spec
 
-import "github.com/heathj/gobrowse/parser/webidl"
-
 type eventPhase uint
 
 const (
@@ -13,7 +11,7 @@ const (
 
 // https:domspec.whatwg.org/#interface-event
 type Event struct {
-	eventType        webidl.DOMString
+	eventType        string
 	target           EventTarget
 	srcElement       EventTarget
 	currentTarget    EventTarget
@@ -25,11 +23,11 @@ type Event struct {
 	defaultPrevented bool
 	composed         bool
 	isTrusted        bool
-	timeStamp        webidl.DOMHighResTimeStamp
+	timeStamp        uint
 }
 
-func (e *Event) ComposedPath() []EventTarget                           { return nil }
-func (e *Event) StopPropagation()                                      {}
-func (e *Event) StopImmediatePropagation()                             {}
-func (e *Event) PreventDefault()                                       {}
-func (e *Event) InitEvent(eventType webidl.DOMString, options ...bool) {}
+func (e *Event) ComposedPath() []EventTarget                 { return nil }
+func (e *Event) StopPropagation()                            {}
+func (e *Event) StopImmediatePropagation()                   {}
+func (e *Event) PreventDefault()                             {}
+func (e *Event) InitEvent(eventType string, options ...bool) {}

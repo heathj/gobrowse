@@ -3,8 +3,6 @@ package spec
 import (
 	"fmt"
 	"sort"
-
-	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 func (h *NodeList) Contains(n *Node) int {
@@ -49,11 +47,7 @@ func (h *NodeList) Pop() *Node {
 	return popped
 }
 
-func (h *NodeList) PopUntil(tagName webidl.DOMString) *Node {
-	return h.PopUntilMany([]webidl.DOMString{tagName})
-}
-
-func (h *NodeList) PopUntilMany(tagNames []webidl.DOMString) *Node {
+func (h *NodeList) PopUntil(first string, rest ...string) *Node {
 	var popped *Node
 	for {
 		popped = h.Pop()
@@ -61,7 +55,10 @@ func (h *NodeList) PopUntilMany(tagNames []webidl.DOMString) *Node {
 			return nil
 		}
 
-		for _, tagName := range tagNames {
+		if popped.NodeName == first {
+			return popped
+		}
+		for _, tagName := range rest {
 			if popped.NodeName == tagName {
 				return popped
 			}
@@ -89,7 +86,7 @@ func (h *NodeList) Push(n *Node) {
 	*h = append(*h, n)
 }
 
-func (c *NodeList) ContainsElementInSpecificScopeExcept(target webidl.DOMString, list []webidl.DOMString) bool {
+func (c *NodeList) ContainsElementInSpecificScopeExcept(target string, list ...string) bool {
 	for i := len(*c) - 1; i >= 0; i-- {
 		entry := (*c)[i]
 		if target == entry.NodeName {
@@ -111,7 +108,7 @@ func (c *NodeList) ContainsElementInSpecificScopeExcept(target webidl.DOMString,
 	return false
 }
 
-var elementInScopeList = []webidl.DOMString{
+var elementInScopeList = []string{
 	"applet",
 	"caption",
 	"html",
@@ -131,8 +128,10 @@ var elementInScopeList = []webidl.DOMString{
 	"desc",
 	"title",
 }
+var listItemScopeList = append(elementInScopeList, "ol", "ul")
+var buttonItemScopeList = append(elementInScopeList, "button")
 
-func (c *NodeList) ContainsElementInSpecificScope(target webidl.DOMString, list []webidl.DOMString) bool {
+func (c *NodeList) ContainsElementInSpecificScope(target string, list ...string) bool {
 	for i := len(*c) - 1; i >= 0; i-- {
 		entry := (*c)[i]
 		if target == entry.NodeName {
@@ -149,7 +148,7 @@ func (c *NodeList) ContainsElementInSpecificScope(target webidl.DOMString, list 
 	return false
 }
 
-func (c *NodeList) ContainsElementsInScope(elems []webidl.DOMString) bool {
+func (c *NodeList) ContainsElementsInScope(elems ...string) bool {
 	for _, elem := range elems {
 		if c.ContainsElementInScope(elem) {
 			return true
@@ -159,42 +158,24 @@ func (c *NodeList) ContainsElementsInScope(elems []webidl.DOMString) bool {
 	return false
 }
 
-func (c *NodeList) ContainsElementInScope(target webidl.DOMString) bool {
-	return c.ContainsElementInSpecificScope(target, elementInScopeList)
+func (c *NodeList) ContainsElementInScope(target string) bool {
+	return c.ContainsElementInSpecificScope(target, elementInScopeList...)
 }
 
-func (c *NodeList) ContainsElementInListItemScope(target webidl.DOMString) bool {
-	list := []webidl.DOMString{
-		"ol",
-		"ul",
-	}
-	list = append(list, elementInScopeList...)
-	return c.ContainsElementInSpecificScope(target, list)
+func (c *NodeList) ContainsElementInListItemScope(target string) bool {
+	return c.ContainsElementInSpecificScope(target, listItemScopeList...)
 }
 
-func (c *NodeList) ContainsElementInButtonScope(target webidl.DOMString) bool {
-	list := []webidl.DOMString{
-		"button",
-	}
-	list = append(list, elementInScopeList...)
-	return c.ContainsElementInSpecificScope(target, list)
+func (c *NodeList) ContainsElementInButtonScope(target string) bool {
+	return c.ContainsElementInSpecificScope(target, buttonItemScopeList...)
 }
 
-func (c *NodeList) ContainsElementInTableScope(target webidl.DOMString) bool {
-	list := []webidl.DOMString{
-		"html",
-		"table",
-		"template",
-	}
-	return c.ContainsElementInSpecificScope(target, list)
+func (c *NodeList) ContainsElementInTableScope(target string) bool {
+	return c.ContainsElementInSpecificScope(target, "html", "table", "template")
 }
 
-func (c *NodeList) ContainsElementInSelectScope(target webidl.DOMString) bool {
-	list := []webidl.DOMString{
-		"optgroup",
-		"option",
-	}
-	return c.ContainsElementInSpecificScopeExcept(target, list)
+func (c *NodeList) ContainsElementInSelectScope(target string) bool {
+	return c.ContainsElementInSpecificScopeExcept(target, "optgroup", "option")
 }
 
 type NodeType uint16
@@ -229,7 +210,7 @@ var ScopeMarker = &Node{
 }
 
 // NewComment returns a comment node with its Data section filled.
-func NewComment(data webidl.DOMString, od *Node) *Node {
+func NewComment(data string, od *Node) *Node {
 	return &Node{
 		NodeType:      CommentNode,
 		OwnerDocument: od,
@@ -243,7 +224,6 @@ func NewComment(data webidl.DOMString, od *Node) *Node {
 
 func NewHTMLDocumentNode() *HTMLDocument {
 	return &HTMLDocument{
-
 		Node: &Node{
 			NodeType: DocumentNode,
 			Document: &Document{Type: "html"},
@@ -257,7 +237,7 @@ func NewTextNode(od *Node, text string) *Node {
 		OwnerDocument: od,
 		Text: &Text{
 			CharacterData: &CharacterData{
-				Data: webidl.DOMString(text),
+				Data: text,
 			},
 		},
 	}
@@ -266,20 +246,20 @@ func NewTextNode(od *Node, text string) *Node {
 func NewDocTypeNode(name, pub, sys string) *Node {
 	return &Node{
 		NodeType: DocumentTypeNode,
-		NodeName: webidl.DOMString(name),
+		NodeName: name,
 		DocumentType: &DocumentType{
-			Name:     webidl.DOMString(name),
-			PublicID: webidl.DOMString(pub),
-			SystemID: webidl.DOMString(sys),
+			Name:     name,
+			PublicID: pub,
+			SystemID: sys,
 		},
 	}
 }
 
-func NewDOMElement(od *Node, name webidl.DOMString, namespace Namespace, optionals ...webidl.DOMString) *Node {
+func NewDOMElement(od *Node, name string, namespace Namespace, optionals ...string) *Node {
 	// handle custom events? not sure how that will work since that is functionality of the HTML
 	// not the DOM  might need to create a shared package or something so I don't get
 	// circular deps
-	var prefix webidl.DOMString
+	var prefix string
 	if len(optionals) >= 1 {
 		prefix = optionals[0]
 	}
@@ -303,14 +283,14 @@ func NewDOMElement(od *Node, name webidl.DOMString, namespace Namespace, optiona
 // https://dom.whatwg.org/#node
 type Node struct {
 	NodeType                                                        NodeType
-	NodeName                                                        webidl.DOMString
-	BaseURI                                                         webidl.USVString
+	NodeName                                                        string
+	BaseURI                                                         string
 	IsConnected                                                     bool
 	OwnerDocument                                                   *Node
 	ParentNode, FirstChild, LastChild, PreviousSibling, NextSibling *Node
 	ParentElement                                                   *Element
 	ChildNodes                                                      NodeList
-	NodeValue, TextContent                                          webidl.DOMString
+	NodeValue, TextContent                                          string
 
 	// Node types
 	*Element
@@ -347,7 +327,7 @@ func serializeNodeType(node *Node, ident int) string {
 				spaces += "  "
 			}
 			for _, name := range keys {
-				attr := node.Attributes.Attrs[webidl.DOMString(name)]
+				attr := node.Attributes.Attrs[name]
 				var ns string
 				switch attr.Namespace {
 				case Xmlnsns:
@@ -513,12 +493,12 @@ func (n *Node) IsEqualNode(on *Node) bool {
 	return true
 }
 
-func (n *Node) IsSameNode(on *Node) bool                                    { return false }
-func (n *Node) CompareDocumentPosition(on *Node) DocumentPosition           { return Disconnected }
-func (n *Node) Contains(on *Node) bool                                      { return false }
-func (n *Node) LookupPrefix(namespace webidl.DOMString) webidl.DOMString    { return "" }
-func (n *Node) LookupNamespaceURI(prefix webidl.DOMString) webidl.DOMString { return "" }
-func (n *Node) IsDefaultNamespace() bool                                    { return false }
+func (n *Node) IsSameNode(on *Node) bool                          { return false }
+func (n *Node) CompareDocumentPosition(on *Node) DocumentPosition { return Disconnected }
+func (n *Node) Contains(on *Node) bool                            { return false }
+func (n *Node) LookupPrefix(namespace string) string              { return "" }
+func (n *Node) LookupNamespaceURI(prefix string) string           { return "" }
+func (n *Node) IsDefaultNamespace() bool                          { return false }
 func (n *Node) InsertBefore(on, child *Node) *Node {
 	for i := range n.ChildNodes {
 		if n.ChildNodes[i] == child {

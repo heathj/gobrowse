@@ -1,18 +1,16 @@
 package spec
 
-import "github.com/heathj/gobrowse/parser/webidl"
-
 //https:domspec.whatwg.org/#domimplementation
 type DOMImplementation struct {
 }
 
-func (d *DOMImplementation) CreateDocumentType(qualifiedName, publicID, systemID webidl.DOMString) *DocumentType {
+func (d *DOMImplementation) CreateDocumentType(qualifiedName, publicID, systemID string) *DocumentType {
 	return nil
 }
-func (d *DOMImplementation) CreateDocument(namespace, qualifiedName webidl.DOMString, docType DocumentType) *XMLDocument {
+func (d *DOMImplementation) CreateDocument(namespace, qualifiedName string, docType DocumentType) *XMLDocument {
 	return nil
 }
-func (d *DOMImplementation) CreateHTMLDocument(title webidl.DOMString) *Document {
+func (d *DOMImplementation) CreateHTMLDocument(title string) *Document {
 	return nil
 }
 

@@ -4,8 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/heathj/gobrowse/parser/webidl"
-
 	"github.com/heathj/gobrowse/parser/spec"
 )
 
@@ -42,7 +40,7 @@ func SerializeHTMLFragement(fragment *spec.Node) string {
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				ret += " " + k + "=" + "\"" + escapeString(string(child.Attributes.Attrs[webidl.DOMString(k)].Value), true) + "\""
+				ret += " " + k + "=" + "\"" + escapeString(string(child.Attributes.Attrs[k].Value), true) + "\""
 			}
 			ret += ">"
 			ret += SerializeHTMLFragement(child) + "</" + string(child.NodeName) + ">"
@@ -82,7 +80,6 @@ func ParseHTMLFragment(context *spec.Node, input string, quirks quirksMode, scri
 	parser := NewParser(strings.NewReader(input))
 	parser.TreeConstructor.context = context
 	parser.TreeConstructor.quirksMode = quirks
-	parser.TreeConstructor.createdBy = htmlFragmentParsingAlgorithm
 	var startState tokenizerState
 	switch context.NodeName {
 	case "title", "textarea":

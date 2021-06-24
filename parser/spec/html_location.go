@@ -1,21 +1,11 @@
 package spec
 
-import "github.com/heathj/gobrowse/parser/webidl"
-
-type DOMStringList []webidl.DOMString
+type DOMStringList []string
 type HTMLLocation struct {
-	href            webidl.USVString
-	origin          webidl.USVString
-	protocol        webidl.USVString
-	host            webidl.USVString
-	hostname        webidl.USVString
-	port            webidl.USVString
-	pathname        webidl.USVString
-	search          webidl.USVString
-	hash            webidl.USVString
-	ancestorOrigins DOMStringList
+	href, origin, protocol, host, hostname, port, pathname, search, hash string
+	ancestorOrigins                                                      DOMStringList
 }
 
-func (l *HTMLLocation) assign(url webidl.USVString)  {}
-func (l *HTMLLocation) replace(url webidl.USVString) {}
-func (l *HTMLLocation) reload()                      {}
+func (l *HTMLLocation) assign(url string)  {}
+func (l *HTMLLocation) replace(url string) {}
+func (l *HTMLLocation) reload()            {}

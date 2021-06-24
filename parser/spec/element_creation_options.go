@@ -1,9 +1,7 @@
 package spec
 
-import "github.com/heathj/gobrowse/parser/webidl"
-
 // https:domspec.whatwg.org/#dictdef-elementcreationoptions
-type ElementCreationOptions map[elementCreationKeys]webidl.DOMString
+type ElementCreationOptions map[elementCreationKeys]string
 type elementCreationKeys uint
 
 const (

@@ -12,26 +12,22 @@ import (
 
 // HTMLTokenizer holds state for the various state of the tokenizer.
 type HTMLTokenizer struct {
-	done                    bool
-	returnState             tokenizerState
-	inputStream             *bufio.Reader
-	currentState            tokenizerState
-	adjustedCurrentNode     *spec.Node
-	emittedTokens           []*Token
-	tokenBuilder            *TokenBuilder
-	lastEmittedStartTagName string
+	done                      bool
+	returnState, currentState tokenizerState
+	inputStream               *bufio.Reader
+	adjustedCurrentNode       *spec.Node
+	emittedTokens             []Token
+	tokenBuilder              *TokenBuilder
+	lastEmittedStartTagName   string
 }
 
 // NewHTMLTokenizer creates an HTML parser that can be used to process
 // an HTML string.
-func NewHTMLTokenizer(htmlIn io.Reader) *HTMLTokenizer {
+func NewHTMLTokenizer(io io.Reader) *HTMLTokenizer {
 	return &HTMLTokenizer{
-		done:          false,
-		returnState:   dataState,
-		currentState:  dataState,
-		emittedTokens: []*Token{},
-		inputStream:   bufio.NewReader(htmlIn),
-		tokenBuilder:  newTokenBuilder(),
+		emittedTokens: []Token{},
+		inputStream:   bufio.NewReader(io),
+		tokenBuilder:  MakeTokenBuilder(),
 	}
 }
 
@@ -247,17 +243,16 @@ func isSurrogate(code int) bool {
 	return false
 }
 
-func (p *HTMLTokenizer) wasConsumedByAttribute() bool {
-	if p.returnState == attributeValueDoubleQuotedState ||
-		p.returnState == attributeValueSingleQuotedState ||
-		p.returnState == attributeValueUnquotedState {
+func wasConsumedByAttribute(returnState tokenizerState) bool {
+	switch returnState {
+	case attributeValueDoubleQuotedState, attributeValueSingleQuotedState, attributeValueUnquotedState:
 		return true
 	}
 	return false
 }
 
 func (p *HTMLTokenizer) flushCodePointsAsCharacterReference() {
-	if p.wasConsumedByAttribute() {
+	if wasConsumedByAttribute(p.returnState) {
 		for _, v := range p.tokenBuilder.TempBuffer() {
 			p.tokenBuilder.WriteAttributeValue(v)
 		}
@@ -270,26 +265,21 @@ func (p *HTMLTokenizer) isApprEndTagToken() bool {
 	return p.lastEmittedStartTagName == p.tokenBuilder.name.String()
 }
 
-func (p *HTMLTokenizer) emit(toks ...*Token) {
-	for _, tok := range toks {
-		if tok.TokenType == endTagToken {
-			// When an end tag token is emitted with attributes, that is an end-tag-with-attributes
-			// parse error.
-			if len(tok.Attributes) > 0 {
-				tok.Attributes = make(map[string]*spec.Attr)
+func (p *HTMLTokenizer) emit(tokens ...Token) {
+	for _, token := range tokens {
+		if token.TokenType == endTagToken {
+			if len(token.Attributes) > 0 {
+				token.Attributes = make(map[string]*spec.Attr)
 			}
-
-			// When an end tag token is emitted with its self-closing flag set, that is an
-			// end-tag-with-trailing-solidus parse error.
-			if tok.SelfClosing {
-				tok.SelfClosing = false
+			if token.SelfClosing {
+				token.SelfClosing = false
 			}
-		} else if tok.TokenType == startTagToken {
-			p.lastEmittedStartTagName = tok.TagName
+		} else if token.TokenType == startTagToken {
+			p.lastEmittedStartTagName = token.TagName
 		}
-	}
 
-	p.emittedTokens = append(p.emittedTokens, toks...)
+		p.emittedTokens = append(p.emittedTokens, token)
+	}
 }
 
 func (p *HTMLTokenizer) dataStateParser(r rune, eof bool) (bool, tokenizerState) {
@@ -390,11 +380,11 @@ func (p *HTMLTokenizer) tagOpenStateParser(r rune, eof bool) (bool, tokenizerSta
 	case '/':
 		return false, endTagOpenState
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.curTagType = startTag
 		return true, tagNameState
 	case '?':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		return true, bogusCommentState
 	default:
 		p.emit(p.tokenBuilder.CharacterToken('<'))
@@ -409,14 +399,14 @@ func (p *HTMLTokenizer) endTagOpenStateParser(r rune, eof bool) (bool, tokenizer
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.curTagType = endTag
 		return true, tagNameState
 	case '>':
 
 		return false, dataState
 	default:
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		return true, bogusCommentState
 	}
 }
@@ -471,7 +461,7 @@ func (p *HTMLTokenizer) rcDataEndTagOpenStateParser(r rune, eof bool) (bool, tok
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.curTagType = endTag
 		return true, rcDataEndTagNameState
 	default:
@@ -543,7 +533,7 @@ func (p *HTMLTokenizer) rawTextEndTagOpenStateParser(r rune, eof bool) (bool, to
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.curTagType = endTag
 		return true, rawTextEndTagNameState
 	default:
@@ -614,7 +604,7 @@ func (p *HTMLTokenizer) scriptDataEndTagOpenStateParser(r rune, eof bool) (bool,
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.curTagType = endTag
 		return true, scriptDataEndTagNameState
 	default:
@@ -770,7 +760,7 @@ func (p *HTMLTokenizer) scriptDataEscapedEndTagOpenStateParser(r rune, eof bool)
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.curTagType = endTag
 		return true, scriptDataEscapedEndTagNameState
 	default:
@@ -1152,13 +1142,13 @@ var cdata = []byte("CDATA[")
 var peekDist = 6
 
 func (p *HTMLTokenizer) defaultMarkupDeclarationOpenStateParser() (bool, tokenizerState) {
-	p.tokenBuilder.NewToken()
+	p.tokenBuilder.Reset()
 	return true, bogusCommentState
 }
 
 func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		return true, bogusCommentState
 	}
 	var (
@@ -1176,7 +1166,7 @@ func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune, eof bool) (bool
 		}
 		if len(peeked) == 1 && peeked[0] == '-' {
 			p.inputStream.Discard(1)
-			p.tokenBuilder.NewToken()
+			p.tokenBuilder.Reset()
 			return false, commentStartState
 		}
 
@@ -1204,7 +1194,7 @@ func (p *HTMLTokenizer) markupDeclarationOpenStateParser(r rune, eof bool) (bool
 			if p.adjustedCurrentNode != nil && p.adjustedCurrentNode.Element.NamespaceURI != spec.Htmlns {
 				return false, cdataSectionState
 			}
-			p.tokenBuilder.NewToken()
+			p.tokenBuilder.Reset()
 			p.tokenBuilder.WriteData('[')
 			p.tokenBuilder.WriteData('C')
 			p.tokenBuilder.WriteData('D')
@@ -1375,7 +1365,7 @@ func (p *HTMLTokenizer) commentEndBangStateParser(r rune, eof bool) (bool, token
 }
 func (p *HTMLTokenizer) doctypeStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
 		return false, dataState
@@ -1391,7 +1381,7 @@ func (p *HTMLTokenizer) doctypeStateParser(r rune, eof bool) (bool, tokenizerSta
 }
 func (p *HTMLTokenizer) beforeDoctypeNameStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken(), p.tokenBuilder.EndOfFileToken())
 		return false, dataState
@@ -1400,21 +1390,21 @@ func (p *HTMLTokenizer) beforeDoctypeNameStateParser(r rune, eof bool) (bool, to
 	case '\u0009', '\u000A', '\u000C', '\u0020':
 		return false, beforeDoctypeNameState
 	case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		r += 0x20
 		p.tokenBuilder.WriteName(r)
 		return false, doctypeNameState
 	case '\u0000':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.WriteName('\uFFFD')
 		return false, doctypeNameState
 	case '>':
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.EnableForceQuirks()
 		p.emit(p.tokenBuilder.DocTypeToken())
 		return false, dataState
 	default:
-		p.tokenBuilder.NewToken()
+		p.tokenBuilder.Reset()
 		p.tokenBuilder.WriteName(r)
 		return false, doctypeNameState
 	}
@@ -1796,7 +1786,7 @@ func (p *HTMLTokenizer) characterReferenceStateParser(r rune, eof bool) (bool, t
 	}
 }
 
-func (p *HTMLTokenizer) anyFilteredtable(filteredTable map[string][]rune, match string) (bool, string) {
+func (p *HTMLTokenizer) anyFilteredTable(filteredTable map[string][]rune, match string) (bool, string) {
 	smallest := ""
 	// one byte at a time, remove things that don't match
 	for k := range filteredTable {
@@ -1827,13 +1817,13 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune, eof bool) (bo
 		return false, ambiguousAmpersandState
 	}
 
-	filteredTable := make(map[string][]rune, len(charRefTable))
+	filteredTable := map[string][]rune{}
 	for k, v := range charRefTable {
 		filteredTable[k] = v
 	}
 
 	consumed := []byte{byte(r)}
-	hasMatches, smallest := p.anyFilteredtable(filteredTable, string(consumed))
+	hasMatches, smallest := p.anyFilteredTable(filteredTable, string(consumed))
 
 	var (
 		b, sep, next []byte
@@ -1854,7 +1844,7 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune, eof bool) (bo
 
 		// concatenate the read bytes to the consumed
 		match = bytes.Join([][]byte{consumed, b}, sep)
-		hasMatches, newSmallest = p.anyFilteredtable(filteredTable, string(match))
+		hasMatches, newSmallest = p.anyFilteredTable(filteredTable, string(match))
 
 		// if we found a larger, better match in the table, update the reader and
 		// the loop counter
@@ -1894,7 +1884,7 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune, eof bool) (bo
 	}
 
 	endsInSemiColon := bytes.HasSuffix(consumed, []byte{';'})
-	if p.wasConsumedByAttribute() && !endsInSemiColon {
+	if wasConsumedByAttribute(p.returnState) && !endsInSemiColon {
 		next, err = p.inputStream.Peek(1)
 		if err == nil {
 			switch next[0] {
@@ -1915,15 +1905,15 @@ func (p *HTMLTokenizer) namedCharacterReferenceStateParser(r rune, eof bool) (bo
 	p.flushCodePointsAsCharacterReference()
 
 	return false, p.returnState
-
 }
+
 func (p *HTMLTokenizer) ambiguousAmpersandStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
 		return true, p.returnState
 	}
 	switch r {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		if p.wasConsumedByAttribute() {
+		if wasConsumedByAttribute(p.returnState) {
 			p.tokenBuilder.WriteAttributeValue(r)
 		} else {
 			p.emit(p.tokenBuilder.CharacterToken(r))
@@ -1948,6 +1938,7 @@ func (p *HTMLTokenizer) numericCharacterReferenceStateParser(r rune, eof bool) (
 		return true, decimalCharacterReferenceStartState
 	}
 }
+
 func (p *HTMLTokenizer) hexadecimalCharacterReferenceStartStateParser(r rune, eof bool) (bool, tokenizerState) {
 
 	if eof {
@@ -1962,6 +1953,7 @@ func (p *HTMLTokenizer) hexadecimalCharacterReferenceStartStateParser(r rune, eo
 		return true, p.returnState
 	}
 }
+
 func (p *HTMLTokenizer) decimalCharacterReferenceStartStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
 		p.flushCodePointsAsCharacterReference()
@@ -1975,6 +1967,7 @@ func (p *HTMLTokenizer) decimalCharacterReferenceStartStateParser(r rune, eof bo
 		return true, p.returnState
 	}
 }
+
 func (p *HTMLTokenizer) hexadecimalCharacterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
 		return true, numericCharacterReferenceEndState
@@ -1998,6 +1991,7 @@ func (p *HTMLTokenizer) hexadecimalCharacterReferenceStateParser(r rune, eof boo
 		return true, numericCharacterReferenceEndState
 	}
 }
+
 func (p *HTMLTokenizer) decimalCharacterReferenceStateParser(r rune, eof bool) (bool, tokenizerState) {
 	if eof {
 		return true, numericCharacterReferenceEndState
@@ -2192,7 +2186,7 @@ func (p *HTMLTokenizer) takeLastEmittedToken() *Token {
 		if ret.TokenType == endOfFileToken {
 			p.done = true
 		}
-		return ret
+		return &ret
 	}
 	return nil
 }
@@ -2203,6 +2197,9 @@ func (p *HTMLTokenizer) Next() bool {
 
 func (p *HTMLTokenizer) Token(progress *Progress) (*Token, error) {
 	// the tree constructor needs to be able to change the state of the tokenizer.
+	// TODO: this only is in certain cases. if we can hide this behind a feature flag
+	// we can make the normal case a bit more abstracted between tokenizer and tree
+	// constructor.
 	// if TokenizerState is set, the tree constructor set it.
 	p.adjustedCurrentNode = progress.AdjustedCurrentNode
 	if progress.TokenizerState != nil {

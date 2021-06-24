@@ -1,9 +1,5 @@
 package spec
 
-import (
-	"github.com/heathj/gobrowse/parser/webidl"
-)
-
 type DocumentReadyState string
 
 const (
@@ -17,44 +13,43 @@ type EventHandler func(e *Event)
 
 // https://html.spec.whatwg.org/#the-document-object
 type HTMLDocument struct {
-	Location                                       *HTMLLocation
-	Domain, Referrer, Cookie                       webidl.USVString
-	LastModified, Title, Dir, DesignMode           webidl.DOMString
-	ReadyState                                     DocumentReadyState
-	Body                                           *HTMLElement
-	Head                                           *HTMLHead
-	Images, Embeds, Plugins, Links, Forms, Scripts HTMLCollection
-	CurrentScript                                  HTMLOrSVGScript
-	DefaultView                                    *WindowProxy
-	Onreadystatechange                             EventHandler
+	Location                                                       *HTMLLocation
+	Domain, Referrer, Cookie, LastModified, Title, Dir, DesignMode string
+	ReadyState                                                     DocumentReadyState
+	Body                                                           *HTMLElement
+	Head                                                           *HTMLHead
+	Images, Embeds, Plugins, Links, Forms, Scripts                 HTMLCollection
+	CurrentScript                                                  HTMLOrSVGScript
+	DefaultView                                                    *WindowProxy
+	Onreadystatechange                                             EventHandler
 
 	*Node
 }
 
-func (d *HTMLDocument) GetElementsByName(elementName webidl.DOMString) NodeList { return nil }
-func (d *HTMLDocument) Open(u1, u2 webidl.DOMString) *HTMLDocument              { return nil }
-func (d *HTMLDocument) OpenW(url webidl.USVString, name, features webidl.DOMString) *WindowProxy {
+func (d *HTMLDocument) GetElementsByName(elementName string) NodeList { return nil }
+func (d *HTMLDocument) Open(u1, u2 string) *HTMLDocument              { return nil }
+func (d *HTMLDocument) OpenW(url string, name, features string) *WindowProxy {
 	return nil
 }
-func (d *HTMLDocument) Close()                           {}
-func (d *HTMLDocument) Write(text ...webidl.DOMString)   {}
-func (d *HTMLDocument) Writeln(text ...webidl.DOMString) {}
-func (d *HTMLDocument) HasFocus() bool                   { return false }
-func (d *HTMLDocument) ExecCommand(commandID webidl.DOMString, showUI bool, value webidl.DOMString) bool {
+func (d *HTMLDocument) Close()                 {}
+func (d *HTMLDocument) Write(text ...string)   {}
+func (d *HTMLDocument) Writeln(text ...string) {}
+func (d *HTMLDocument) HasFocus() bool         { return false }
+func (d *HTMLDocument) ExecCommand(commandID string, showUI bool, value string) bool {
 	return false
 }
-func (d *HTMLDocument) QueryCommandEnabled(commandID webidl.DOMString) bool {
+func (d *HTMLDocument) QueryCommandEnabled(commandID string) bool {
 	return false
 }
-func (d *HTMLDocument) QueryCommandIndeterm(commandID webidl.DOMString) bool {
+func (d *HTMLDocument) QueryCommandIndeterm(commandID string) bool {
 	return false
 }
-func (d *HTMLDocument) QueryCommandState(commandID webidl.DOMString) bool {
+func (d *HTMLDocument) QueryCommandState(commandID string) bool {
 	return false
 }
-func (d *HTMLDocument) QueryCommandSupported(commandID webidl.DOMString) bool {
+func (d *HTMLDocument) QueryCommandSupported(commandID string) bool {
 	return false
 }
-func (d *HTMLDocument) QueryCommandValue(commandID webidl.DOMString) webidl.DOMString {
+func (d *HTMLDocument) QueryCommandValue(commandID string) string {
 	return ""
 }

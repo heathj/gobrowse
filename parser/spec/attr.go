@@ -1,13 +1,9 @@
 package spec
 
-import (
-	"github.com/heathj/gobrowse/parser/webidl"
-)
-
 // Attr is https:domspec.whatwg.org/#attr
 type Attr struct {
 	Namespace                      Namespace
-	Prefix, LocalName, Name, Value webidl.DOMString
+	Prefix, LocalName, Name, Value string
 	OwnerElement                   *Node
 	Specified                      bool
 }

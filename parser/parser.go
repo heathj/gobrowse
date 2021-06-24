@@ -34,14 +34,31 @@ func MakeProgress(adjCurNode *spec.Node, tokenizerState *tokenizerState) *Progre
 
 func (p *Parser) Start() (*spec.Node, error) {
 	start := dataState
-	_, err := p.startAt(&start)
-	if err != nil {
+	if err := p.startAt(&start); err != nil {
 		return nil, err
 	}
 	return p.TreeConstructor.HTMLDocument.Node, nil
 }
 
-func (p *Parser) startAt(startState *tokenizerState) ([]Token, error) {
+// start parsing the tokens at a specific start point
+func (p *Parser) startAt(startState *tokenizerState) error {
+	var (
+		progress *Progress = MakeProgress(nil, startState)
+	)
+	for p.Tokenizer.Next() {
+		t, err := p.Tokenizer.Token(progress)
+		if err != nil {
+			return err
+		}
+		progress = p.TreeConstructor.ProcessToken(*t)
+	}
+
+	return nil
+}
+
+// startAtTokens returns the set of tokens that were produced from this input.
+// mainly used for testing and debugging tokenizer.
+func (p *Parser) startAtTokens(startState *tokenizerState) ([]Token, error) {
 	var (
 		progress *Progress = MakeProgress(nil, startState)
 		tokens             = []Token{}
@@ -52,7 +69,8 @@ func (p *Parser) startAt(startState *tokenizerState) ([]Token, error) {
 			return nil, err
 		}
 		tokens = append(tokens, *t)
-		progress = p.TreeConstructor.ProcessToken(t)
+		progress = p.TreeConstructor.ProcessToken(*t)
+
 	}
 
 	return tokens, nil

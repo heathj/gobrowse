@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/heathj/gobrowse/parser/spec"
-	"github.com/heathj/gobrowse/parser/webidl"
 )
 
 type docFramementTest struct {
@@ -37,7 +36,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 		switch splits[i] {
 		case "#errors":
 		case "#document-fragment":
-			docFrag = spec.NewDOMElement(nil, webidl.DOMString(splits[i+1]), spec.Htmlns)
+			docFrag = spec.NewDOMElement(nil, splits[i+1], spec.Htmlns)
 		case "#document":
 			expected = "#document\n"
 			for j := i + 1; j < len(splits); j++ {

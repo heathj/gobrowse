@@ -959,14 +959,14 @@ func formatString(v interface{}, de bool) string {
 }
 
 func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
-	tb := newTokenBuilder()
+	tb := MakeTokenBuilder()
 	tokens := []Token{}
 
 	publicID := missing
 	systemID := missing
 	var name string
 	for _, v := range outputs {
-		tb.NewToken()
+		tb.Reset()
 		if len(v) == 0 {
 			continue
 		}
@@ -1009,7 +1009,7 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 					tb.WriteSystemIdentifier(v)
 				}
 			}
-			tokens = append(tokens, *tb.DocTypeToken())
+			tokens = append(tokens, tb.DocTypeToken())
 		case "StartTag":
 			if len(v) >= 2 && v[1] != nil {
 				for _, n := range v[1].(string) {
@@ -1036,7 +1036,7 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 				}
 			}
 
-			tokens = append(tokens, *tb.StartTagToken())
+			tokens = append(tokens, tb.StartTagToken())
 		case "EndTag":
 			if len(v) >= 2 && v[1] != nil {
 				s := formatString(v[1], doubleEscape)
@@ -1045,7 +1045,7 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 				}
 			}
 
-			tokens = append(tokens, *tb.EndTagToken())
+			tokens = append(tokens, tb.EndTagToken())
 		case "Comment":
 			if len(v) >= 1 && v[1] != nil {
 				s := formatString(v[1], doubleEscape)
@@ -1053,12 +1053,12 @@ func formatOutputs(outputs [][]interface{}, doubleEscape bool) []Token {
 					tb.WriteData(r)
 				}
 			}
-			tokens = append(tokens, *tb.CommentToken())
+			tokens = append(tokens, tb.CommentToken())
 		case "Character":
 			if len(v) >= 2 && v[1] != nil {
 				s := formatString(v[1], doubleEscape)
 				for _, r := range s {
-					tokens = append(tokens, *tb.CharacterToken(r))
+					tokens = append(tokens, tb.CharacterToken(r))
 				}
 			}
 		}
@@ -1106,7 +1106,7 @@ func runHTML5Test(test HTML5Test, t *testing.T) {
 				p.Tokenizer.lastEmittedStartTagName = test.LastStartTag
 			}
 
-			tokens, err := p.startAt(&iState)
+			tokens, err := p.startAtTokens(&iState)
 			if err != nil {
 				t.Fatal(err)
 			}

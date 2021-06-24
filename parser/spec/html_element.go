@@ -1,10 +1,6 @@
 package spec
 
-import (
-	"github.com/heathj/gobrowse/parser/webidl"
-)
-
-func NewHTMLElement(name webidl.DOMString) *HTMLElement {
+func NewHTMLElement(name string) *HTMLElement {
 	elem := &HTMLElement{}
 	switch name {
 	case "script":
@@ -35,7 +31,7 @@ func NewHTMLElement(name webidl.DOMString) *HTMLElement {
 }
 
 type HTMLElement struct {
-	Title, Lang, Dir, AccessKey, AccessKeyLabel, Autocapitalize, InnerText webidl.DOMString
+	Title, Lang, Dir, AccessKey, AccessKeyLabel, Autocapitalize, InnerText string
 	Translate, Hidden, Draggable, Spellcheck                               bool
 
 	*HTMLScript
