@@ -3,6 +3,8 @@ package spec
 import (
 	"fmt"
 	"sort"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (h *NodeList) Contains(n *Node) int {
@@ -468,6 +470,10 @@ func (n *Node) CloneNode(deep bool) *Node {
 			copy.AppendChild(child.CloneNode(true))
 		}
 	}
+	copy.ParentNode = n.ParentNode
+	copy.FirstChild = n.FirstChild
+	copy.PreviousSibling = n.PreviousSibling
+	copy.NextSibling = n.NextSibling
 
 	return copy
 }
@@ -513,6 +519,7 @@ func (n *Node) InsertBefore(on, child *Node) *Node {
 			}
 		}
 	}
+	n.logRoot("InsertBefore")
 	return on
 }
 
@@ -526,6 +533,8 @@ func (n *Node) AppendChild(on *Node) *Node {
 	on.ParentNode = n
 	n.LastChild = on
 	n.ChildNodes = append(n.ChildNodes, on)
+
+	n.logRoot("AppendChild")
 	return on
 }
 func (n *Node) ReplaceChild(on, child *Node) *Node { return nil }
@@ -540,6 +549,18 @@ func (n *Node) RemoveChild(child *Node) *Node {
 			n.LastChild = n.ChildNodes[len(n.ChildNodes)-1]
 		}
 	}
-
+	n.logRoot("RemoveChild")
 	return node
+}
+
+func (n *Node) logRoot(method string) {
+
+	var prev *Node
+	for i := n; i != nil; i = i.ParentNode {
+		prev = i
+	}
+
+	if prev != nil {
+		logrus.WithField("method", method).WithField("node type", n.NodeType).Debugf("[TREE]: %s\n\n", prev)
+	}
 }

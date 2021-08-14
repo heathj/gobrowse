@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/heathj/gobrowse/parser/spec"
@@ -2700,8 +2699,6 @@ func (c *HTMLTreeConstructor) dispatch(t Token, startMode insertionMode) (bool, 
 }
 
 func (c *HTMLTreeConstructor) processToken(t Token, startMode insertionMode) (bool, insertionMode) {
-	fmt.Printf("[TREE]token: %+vmode: %s\n", t, startMode)
 	reprocess, nextMode := c.dispatch(t, startMode)
-	fmt.Printf("[TREE]tree after: \n%s\n\n", c.HTMLDocument.Node)
 	return reprocess, nextMode
 }

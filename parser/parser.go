@@ -42,9 +42,7 @@ func (p *Parser) Start() (*spec.Node, error) {
 
 // start parsing the tokens at a specific start point
 func (p *Parser) startAt(startState *tokenizerState) error {
-	var (
-		progress *Progress = MakeProgress(nil, startState)
-	)
+	progress := MakeProgress(nil, startState)
 	for p.Tokenizer.Next() {
 		t, err := p.Tokenizer.Token(progress)
 		if err != nil {
@@ -70,7 +68,6 @@ func (p *Parser) startAtTokens(startState *tokenizerState) ([]Token, error) {
 		}
 		tokens = append(tokens, *t)
 		progress = p.TreeConstructor.ProcessToken(*t)
-
 	}
 
 	return tokens, nil

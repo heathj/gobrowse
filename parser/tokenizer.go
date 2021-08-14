@@ -3,7 +3,6 @@ package parser
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"strings"
 
@@ -2227,6 +2226,5 @@ func (p *HTMLTokenizer) processRune(r rune, eof bool) {
 	reconsume := true
 	for reconsume {
 		reconsume, p.currentState = p.stateToParser(p.currentState)(r, eof)
-		fmt.Printf("[TOKEN]rune: %s , mode: %s\n", string(r), p.currentState)
 	}
 }
