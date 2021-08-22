@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/sirupsen/logrus"
 )
 
@@ -506,6 +507,8 @@ func (n *Node) LookupPrefix(namespace string) string              { return "" }
 func (n *Node) LookupNamespaceURI(prefix string) string           { return "" }
 func (n *Node) IsDefaultNamespace() bool                          { return false }
 func (n *Node) InsertBefore(on, child *Node) *Node {
+
+	old := n.getRoot().String()
 	for i := range n.ChildNodes {
 		if n.ChildNodes[i] == child {
 			n.ChildNodes = append(n.ChildNodes[:i+1], n.ChildNodes[i:]...)
@@ -519,13 +522,16 @@ func (n *Node) InsertBefore(on, child *Node) *Node {
 			}
 		}
 	}
-	n.logRoot("InsertBefore")
+
+	new := n.getRoot().String()
+	PrintDiff(old, new, "InsertBefore")
 	return on
 }
 
 // didn't really follow the steps here because they seem complicated :/
 // https://dom.whatwg.org/#concept-node-append
 func (n *Node) AppendChild(on *Node) *Node {
+	old := n.getRoot().String()
 	if n.LastChild != nil {
 		on.PreviousSibling = n.LastChild
 		n.LastChild.NextSibling = on
@@ -534,13 +540,15 @@ func (n *Node) AppendChild(on *Node) *Node {
 	n.LastChild = on
 	n.ChildNodes = append(n.ChildNodes, on)
 
-	n.logRoot("AppendChild")
+	new := n.getRoot().String()
+	PrintDiff(old, new, "AppendChild")
 	return on
 }
 func (n *Node) ReplaceChild(on, child *Node) *Node { return nil }
 
 // TODO: not to yet, for some reason remove is like 50 steps. I'll come back to it
 func (n *Node) RemoveChild(child *Node) *Node {
+	old := n.getRoot().String()
 	node := n.ChildNodes.Remove(n.ChildNodes.Contains(child))
 	if n.LastChild != nil {
 		if len(n.ChildNodes) == 0 {
@@ -549,18 +557,27 @@ func (n *Node) RemoveChild(child *Node) *Node {
 			n.LastChild = n.ChildNodes[len(n.ChildNodes)-1]
 		}
 	}
-	n.logRoot("RemoveChild")
+
+	new := n.getRoot().String()
+	PrintDiff(old, new, "RemoveChild")
 	return node
 }
 
-func (n *Node) logRoot(method string) {
-
+func (n *Node) getRoot() *Node {
 	var prev *Node
 	for i := n; i != nil; i = i.ParentNode {
 		prev = i
 	}
 
-	if prev != nil {
-		logrus.WithField("method", method).WithField("node type", n.NodeType).Debugf("[TREE]: %s\n\n", prev)
+	return prev
+}
+
+func PrintDiff(a, b, method string) {
+	//not very helpful logs
+	if a == b {
+		return
 	}
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(a, b, true)
+	logrus.WithField("method", method).Debugf("[TREE]: %s\n\n", dmp.DiffPrettyText(diffs))
 }

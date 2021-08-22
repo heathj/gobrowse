@@ -585,7 +585,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 
 	// outer loop
 	var y, z, si, nif, nis int
-	for x := 1; x < 8; x++ {
+	for x := 0; x < 8; x++ {
 		// 6
 		var formattingElement *spec.Node
 		for y = len(c.activeFormattingElements) - 1; y >= 0; y-- {
@@ -2699,6 +2699,9 @@ func (c *HTMLTreeConstructor) dispatch(t Token, startMode insertionMode) (bool, 
 }
 
 func (c *HTMLTreeConstructor) processToken(t Token, startMode insertionMode) (bool, insertionMode) {
+	//old := c.HTMLDocument.Node.String()
 	reprocess, nextMode := c.dispatch(t, startMode)
+	//new := c.HTMLDocument.Node.String()
+	//spec.PrintDiff(old, new, "processToken")
 	return reprocess, nextMode
 }
