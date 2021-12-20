@@ -1,5 +1,6 @@
 package spec
 
+/*
 // https:domspec.whatwg.org/#nodeiterator
 type NodeIterator struct {
 	root                       *Node
@@ -12,3 +13,4 @@ type NodeIterator struct {
 func (n *NodeIterator) nextNode() *Node     { return nil }
 func (n *NodeIterator) previousNode() *Node { return nil }
 func (n *NodeIterator) detach()             {}
+*/

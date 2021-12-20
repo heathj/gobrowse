@@ -29,7 +29,8 @@ type HTMLTreeConstructor struct {
 	quirksMode                                      quirksMode
 	fosterParenting, scriptingEnabled               bool
 	originalInsertionMode                           insertionMode
-	stackOfOpenElements, activeFormattingElements   spec.NodeList
+	stackOfOpenElements                             spec.StackOfOpenElements
+	activeFormattingElements                        spec.ActiveFormattingElements
 	stackOfTemplateInsertionModes                   []insertionMode
 	headElementPointer, formElementPointer, context *spec.Node
 	pendingTableCharacterTokens                     []Token
@@ -98,10 +99,10 @@ func (c *HTMLTreeConstructor) modeToModeHandler(mode insertionMode) treeConstruc
 }
 
 func (c *HTMLTreeConstructor) getCurrentNode() *spec.Node {
-	if len(c.stackOfOpenElements) == 0 {
+	if len(c.stackOfOpenElements.NodeList) == 0 {
 		return nil
 	}
-	return c.stackOfOpenElements[len(c.stackOfOpenElements)-1]
+	return c.stackOfOpenElements.NodeList[len(c.stackOfOpenElements.NodeList)-1]
 }
 
 func (c *HTMLTreeConstructor) getAdjustedCurrentNode() *spec.Node {
@@ -126,11 +127,11 @@ func (c *HTMLTreeConstructor) insertComment(t Token) {
 }
 
 func (c *HTMLTreeConstructor) getLastElemInStackOfOpenElements(elem string) int {
-	if len(c.stackOfOpenElements) == 0 {
+	if len(c.stackOfOpenElements.NodeList) == 0 {
 		return -1
 	}
-	for i := len(c.stackOfOpenElements) - 1; i >= 0; i-- {
-		if c.stackOfOpenElements[i].NodeName == elem {
+	for i := len(c.stackOfOpenElements.NodeList) - 1; i >= 0; i-- {
+		if c.stackOfOpenElements.NodeList[i].NodeName == elem {
 			return i
 		}
 	}
@@ -274,32 +275,32 @@ func (c *HTMLTreeConstructor) getAppropriatePlaceForInsertion(target *spec.Node)
 
 		if lastTemplate != -1 {
 			if lastTable == -1 || lastTemplate > lastTable {
-				ail.node = c.stackOfOpenElements[lastTemplate]
+				ail.node = c.stackOfOpenElements.NodeList[lastTemplate]
 				ail.insert = func(n *spec.Node) {
-					c.stackOfOpenElements[lastTemplate].AppendChild(n)
+					c.stackOfOpenElements.NodeList[lastTemplate].AppendChild(n)
 				}
 				return ail
 			}
 		}
 
 		if lastTable == -1 {
-			ail.node = c.stackOfOpenElements[0]
+			ail.node = c.stackOfOpenElements.NodeList[0]
 			ail.insert = func(n *spec.Node) {
-				c.stackOfOpenElements[0].AppendChild(n)
+				c.stackOfOpenElements.NodeList[0].AppendChild(n)
 			}
 			return ail
 		}
 
-		if c.stackOfOpenElements[lastTable].ParentNode != nil {
-			ail.node = c.stackOfOpenElements[lastTable].ParentNode
+		if c.stackOfOpenElements.NodeList[lastTable].ParentNode != nil {
+			ail.node = c.stackOfOpenElements.NodeList[lastTable].ParentNode
 			ail.insert = func(n *spec.Node) {
-				c.stackOfOpenElements[lastTable].ParentNode.InsertBefore(n, c.stackOfOpenElements[lastTable])
+				c.stackOfOpenElements.NodeList[lastTable].ParentNode.InsertBefore(n, c.stackOfOpenElements.NodeList[lastTable])
 			}
 			return ail
 		}
 
 		ail.insert = func(n *spec.Node) {
-			c.stackOfOpenElements[lastTable-1].AppendChild(n)
+			c.stackOfOpenElements.NodeList[lastTable-1].AppendChild(n)
 		}
 		return ail
 	}
@@ -336,8 +337,8 @@ func (c *HTMLTreeConstructor) resetInsertionMode() insertionMode {
 
 func (c *HTMLTreeConstructor) resetInsertionModeWithContext(context *spec.Node) insertionMode {
 	last := false
-	lastID := len(c.stackOfOpenElements) - 1
-	node := c.stackOfOpenElements[lastID]
+	lastID := len(c.stackOfOpenElements.NodeList) - 1
+	node := c.stackOfOpenElements.NodeList[lastID]
 	j := lastID
 	for {
 		if j == 0 {
@@ -358,7 +359,7 @@ func (c *HTMLTreeConstructor) resetInsertionModeWithContext(context *spec.Node) 
 				}
 
 				i--
-				ancestor := c.stackOfOpenElements[i]
+				ancestor := c.stackOfOpenElements.NodeList[i]
 				if ancestor.NodeName == "template" {
 					break
 				}
@@ -399,13 +400,13 @@ func (c *HTMLTreeConstructor) resetInsertionModeWithContext(context *spec.Node) 
 			return inBody
 		}
 		j--
-		node = c.stackOfOpenElements[j]
+		node = c.stackOfOpenElements.NodeList[j]
 	}
 }
 
 // https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing
 func (c *HTMLTreeConstructor) stopParsing() (bool, insertionMode) {
-	for len(c.stackOfOpenElements) > 0 {
+	for len(c.stackOfOpenElements.NodeList) > 0 {
 		c.stackOfOpenElements.Pop()
 	}
 
@@ -478,65 +479,6 @@ func (c *HTMLTreeConstructor) useRulesFor(t Token, mode insertionMode) (bool, in
 	return reprocess, nextMode
 }
 
-func compareLastN(n int, elems spec.NodeList, elem *spec.Node) bool {
-	last := len(elems) - 1
-	lastElem := elems[last]
-	for i := last - 1; i >= last-n; i-- {
-		if elems[i].NodeName != lastElem.NodeName {
-			return false
-		}
-
-		if elems[i].Element.NamespaceURI != lastElem.Element.NamespaceURI {
-			return false
-		}
-
-		if elems[i].Attributes.Length != lastElem.Attributes.Length {
-			return false
-		}
-
-		for k, v := range lastElem.Attributes.Attrs {
-			e := elems[i].Attributes.GetNamedItem(k)
-			if e == nil {
-				return false
-			}
-			if v.Namespace != e.Namespace {
-				return false
-			}
-
-			if v.Name != e.Name {
-				return false
-			}
-
-			if v.Value != e.Value {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func (c *HTMLTreeConstructor) pushActiveFormattingElements(elem *spec.Node) {
-	elems := 0
-
-	// find the last marker
-	last := len(c.activeFormattingElements) - 1
-	for i := last; i >= 0 && elems < 3; i-- {
-		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode {
-			break
-		}
-		elems++
-	}
-
-	// elems after last marker
-	if elems >= 3 && compareLastN(3, c.activeFormattingElements, c.activeFormattingElements[last]) {
-		// then remove the earliest such element from the list of active formatting elements.
-		c.activeFormattingElements = c.activeFormattingElements[:last]
-	}
-
-	c.activeFormattingElements.Push(elem)
-}
-
 func isSpecial(n *spec.Node) bool {
 	switch n.NodeName {
 	case "address", "applet", "area", "article", "aside", "base", "basefont", "bgsound", "blockquote",
@@ -588,13 +530,13 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 	for x := 0; x < 8; x++ {
 		// 6
 		var formattingElement *spec.Node
-		for y = len(c.activeFormattingElements) - 1; y >= 0; y-- {
-			if c.activeFormattingElements[y].NodeType == spec.ScopeMarkerNode {
+		for y = len(c.activeFormattingElements.NodeList) - 1; y >= 0; y-- {
+			if c.activeFormattingElements.NodeList[y].NodeType == spec.ScopeMarkerNode {
 				break
 			}
 
-			if c.activeFormattingElements[y].NodeName == t.TagName {
-				formattingElement = c.activeFormattingElements[y]
+			if c.activeFormattingElements.NodeList[y].NodeName == t.TagName {
+				formattingElement = c.activeFormattingElements.NodeList[y]
 				break
 			}
 		}
@@ -621,9 +563,9 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 
 		// 10
 		var furthestBlock *spec.Node
-		for z = si + 1; z < len(c.stackOfOpenElements); z++ {
-			if isSpecial(c.stackOfOpenElements[z]) {
-				furthestBlock = c.stackOfOpenElements[z]
+		for z = si + 1; z < len(c.stackOfOpenElements.NodeList); z++ {
+			if isSpecial(c.stackOfOpenElements.NodeList[z]) {
+				furthestBlock = c.stackOfOpenElements.NodeList[z]
 				break
 			}
 		}
@@ -641,7 +583,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 		}
 
 		// 12
-		ca := c.stackOfOpenElements[si-1]
+		ca := c.stackOfOpenElements.NodeList[si-1]
 		// 13
 		bm := y
 
@@ -651,7 +593,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 		for a := 1; z >= 0; a++ {
 			z--
 			// 14.3
-			node = c.stackOfOpenElements[z]
+			node = c.stackOfOpenElements.NodeList[z]
 
 			// 14.4
 			if node == formattingElement {
@@ -673,11 +615,11 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 			clone := node.CloneNode(false)
 			nif = c.activeFormattingElements.Contains(node)
 			if nif != -1 {
-				c.activeFormattingElements[nif] = clone
+				c.activeFormattingElements.NodeList[nif] = clone
 			}
 			nis = c.stackOfOpenElements.Contains(node)
 			if nis != -1 {
-				c.stackOfOpenElements[nis] = clone
+				c.stackOfOpenElements.NodeList[nis] = clone
 			}
 			// need to replace the node with the clone so that the references match
 			// up when replacing the bookmark below and append a child of the last node.
@@ -739,7 +681,7 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 			c.stackOfOpenElements.Remove(f)
 			b := c.stackOfOpenElements.Contains(furthestBlock)
 			if b != -1 {
-				if b+1 == len(c.stackOfOpenElements) {
+				if b+1 == len(c.stackOfOpenElements.NodeList) {
 					c.stackOfOpenElements.Push(clone)
 				} else {
 					c.stackOfOpenElements.WedgeIn(b+1, clone)
@@ -751,58 +693,58 @@ func (c *HTMLTreeConstructor) adoptionAgencyAlgorithm(t Token) bool {
 	return false
 }
 
-func (c *HTMLTreeConstructor) racfeCreateStep(i int) {
-	// 8. Create: Insert an HTML element for the token for which the element entry was created,
-	// to obtain new element.
-	il := c.getAppropriatePlaceForInsertion(nil)
-	elem := c.activeFormattingElements[i].CloneNode(false)
-	il.insert(elem)
-	c.stackOfOpenElements.Push(elem)
+func (c *HTMLTreeConstructor) topRewoundRAFE() *spec.Node {
+	// 3. Let entry be the last (most recently added) element in the list of active formatting
+	// elements.
+	// 4. Rewind: If there are no entries before entry in the list of active formatting elements,
+	// then jump to the step labeled create.
+	var node, prev *spec.Node
+	rewinder := spec.NewNodeRewinder(c.activeFormattingElements.NodeList)
+	for rewinder.Prev() {
+		prev = node
 
-	// 9. Replace the entry for entry in the list with an entry for new element.
-	c.activeFormattingElements[i] = elem
+		// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
+		node = rewinder.Node()
+		if node.NodeType == spec.ScopeMarkerNode || c.stackOfOpenElements.Contains(node) != -1 {
+			return prev
+		}
+	}
 
-	// 10. If the entry for new element in the list of active formatting elements is not the last
-	// entry in the list, return to the step labeled advance.
+	return node
 }
 
 func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 	// 1. If there are no entries in the list of active formatting elements, then there is nothing
 	// to reconstruct; stop this algorithm.
-	if len(c.activeFormattingElements) == 0 {
+	if len(c.activeFormattingElements.NodeList) == 0 {
 		return
 	}
 
 	// 2. If the last (most recently added) entry in the list of active formatting elements is a
 	// marker, or if it is an element that is in the stack of open elements, then there is nothing
 	// to reconstruct; stop this algorithm.
-	last := len(c.activeFormattingElements) - 1
-	lafe := c.activeFormattingElements[last]
-	doesContain := c.stackOfOpenElements.Contains(lafe)
-	if lafe.NodeType == spec.ScopeMarkerNode || doesContain != -1 {
+	lafe := c.activeFormattingElements.NodeList[len(c.activeFormattingElements.NodeList)-1]
+	if lafe.NodeType == spec.ScopeMarkerNode || c.stackOfOpenElements.Contains(lafe) != -1 {
 		return
 	}
 
-	// 3. Let entry be the last (most recently added) element in the list of active formatting
-	// elements.
-	i := last
+	iter := spec.NewNodeIterator(c.activeFormattingElements.NodeList).WithStartFrom(c.topRewoundRAFE())
+	for iter.Next() {
+		node := iter.Node()
+		// 8. Create: Insert an HTML element for the token for which the element entry was created,
+		// to obtain new element.
+		il := c.getAppropriatePlaceForInsertion(nil)
+		elem := node.CloneNode(false)
+		il.insert(elem)
+		c.stackOfOpenElements.Push(elem)
 
-	// 4. Rewind: If there are no entries before entry in the list of active formatting elements,
-	// then jump to the step labeled create.
-	// 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
-	for ; i >= 0; i-- {
-		// 6. If entry is neither a marker nor an element that is also in the stack of open elements,
-		// go to the step labeled rewind.
-		doesContain = c.stackOfOpenElements.Contains(c.activeFormattingElements[i])
-		if c.activeFormattingElements[i].NodeType == spec.ScopeMarkerNode || doesContain != -1 {
-			break
+		// 9. Replace the entry for entry in the list with an entry for new element.
+		if i := c.activeFormattingElements.Contains(node); i != -1 {
+			c.activeFormattingElements.NodeList[i] = elem
 		}
-	}
 
-	// 7. Advance: Let entry be the element one later than entry in the list of active formatting
-	// elements.
-	for j := i + 1; j < len(c.activeFormattingElements); j++ {
-		c.racfeCreateStep(j)
+		// 10. If the entry for new element in the list of active formatting elements is not the last
+		// entry in the list, return to the step labeled advance.
 	}
 }
 
@@ -1321,8 +1263,8 @@ func (c *HTMLTreeConstructor) afterHeadModeHandler(t Token) (bool, insertionMode
 }
 
 func (c *HTMLTreeConstructor) defaultInBodyModeHandler(t Token) {
-	for i := len(c.stackOfOpenElements) - 1; i >= 0; i-- {
-		node := c.stackOfOpenElements[i]
+	for i := len(c.stackOfOpenElements.NodeList) - 1; i >= 0; i-- {
+		node := c.stackOfOpenElements.NodeList[i]
 		if node.NodeName == t.TagName {
 			c.generateImpliedEndTags(node.NodeName)
 
@@ -1342,7 +1284,7 @@ func (c *HTMLTreeConstructor) defaultInBodyModeHandler(t Token) {
 
 func (c *HTMLTreeConstructor) containedInStackOpenElements(s string) []*spec.Node {
 	nodes := make([]*spec.Node, 0)
-	for _, o := range c.stackOfOpenElements {
+	for _, o := range c.stackOfOpenElements.NodeList {
 		if string(o.NodeName) == s {
 			nodes = append(nodes, o)
 		}
@@ -1389,8 +1331,8 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 			}
 
 			for k, v := range t.Attributes {
-				if attr := c.stackOfOpenElements[0].Attributes.GetNamedItem(k); attr == nil {
-					c.stackOfOpenElements[0].Attributes.SetNamedItem(spec.NewAttr(k, v, c.stackOfOpenElements[0]))
+				if attr := c.stackOfOpenElements.NodeList[0].Attributes.GetNamedItem(k); attr == nil {
+					c.stackOfOpenElements.NodeList[0].Attributes.SetNamedItem(spec.NewAttr(k, v, c.stackOfOpenElements.NodeList[0]))
 				}
 			}
 			return false, inBody
@@ -1398,27 +1340,27 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 			"template", "title":
 			return c.useRulesFor(t, inHead)
 		case "body":
-			if len(c.stackOfOpenElements) <= 1 ||
-				c.stackOfOpenElements[1].NodeName != "body" ||
+			if len(c.stackOfOpenElements.NodeList) <= 1 ||
+				c.stackOfOpenElements.NodeList[1].NodeName != "body" ||
 				len(c.containedInStackOpenElements("template")) != 0 {
 				return false, inBody
 			}
 
 			c.frameset = framesetNotOK
 			for k, v := range t.Attributes {
-				if attr := c.stackOfOpenElements[1].Attributes.GetNamedItem(k); attr == nil {
-					c.stackOfOpenElements[1].Attributes.SetNamedItem(spec.NewAttr(k, v, nil))
+				if attr := c.stackOfOpenElements.NodeList[1].Attributes.GetNamedItem(k); attr == nil {
+					c.stackOfOpenElements.NodeList[1].Attributes.SetNamedItem(spec.NewAttr(k, v, nil))
 				}
 			}
 		case "frameset":
-			if len(c.stackOfOpenElements) <= 1 ||
-				c.stackOfOpenElements[1].NodeName != "body" {
+			if len(c.stackOfOpenElements.NodeList) <= 1 ||
+				c.stackOfOpenElements.NodeList[1].NodeName != "body" {
 				return false, inBody
 			}
 			if c.frameset == framesetNotOK {
 				return false, inBody
 			}
-			c.stackOfOpenElements[1].ParentNode.RemoveChild(c.stackOfOpenElements[1])
+			c.stackOfOpenElements.NodeList[1].ParentNode.RemoveChild(c.stackOfOpenElements.NodeList[1])
 			for c.getCurrentNode().NodeName != "html" {
 				c.stackOfOpenElements.Pop()
 			}
@@ -1477,7 +1419,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 				if isSpecial(node) {
 					switch node.NodeName {
 					case "address", "div", "p":
-						node = c.stackOfOpenElements[len(c.stackOfOpenElements)-1-i]
+						node = c.stackOfOpenElements.NodeList[len(c.stackOfOpenElements.NodeList)-1-i]
 						i++
 						continue
 					default:
@@ -1495,8 +1437,8 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 		case "dd", "dt":
 			c.frameset = framesetNotOK
 			var node *spec.Node
-			for i := len(c.stackOfOpenElements) - 1; i >= 0; i-- {
-				node = c.stackOfOpenElements[i]
+			for i := len(c.stackOfOpenElements.NodeList) - 1; i >= 0; i-- {
+				node = c.stackOfOpenElements.NodeList[i]
 				if node.NodeName == "dd" {
 					c.generateImpliedEndTags("dd")
 					c.stackOfOpenElements.PopUntil("dd")
@@ -1539,8 +1481,8 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 			c.frameset = framesetNotOK
 		case "a":
 			var node *spec.Node
-			for i := len(c.activeFormattingElements) - 1; i >= 0; i-- {
-				node = c.activeFormattingElements[i]
+			for i := len(c.activeFormattingElements.NodeList) - 1; i >= 0; i-- {
+				node = c.activeFormattingElements.NodeList[i]
 				if node.NodeType == spec.ScopeMarkerNode {
 					break
 				}
@@ -1557,7 +1499,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 
 			c.reconstructActiveFormattingElements()
 			elem := c.insertHTMLElementForToken(t)
-			c.pushActiveFormattingElements(elem)
+			c.activeFormattingElements.Push(elem)
 		case "b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u":
 			c.reconstructActiveFormattingElements()
 			elem := c.insertHTMLElementForToken(t)
@@ -2216,8 +2158,8 @@ func (c *HTMLTreeConstructor) inSelectModeHandler(t Token) (bool, insertionMode)
 		switch t.TagName {
 		case "optgroup":
 			if c.getCurrentNode().NodeName == "option" &&
-				len(c.stackOfOpenElements) >= 2 &&
-				c.stackOfOpenElements[len(c.stackOfOpenElements)-2].NodeName == "optgroup" {
+				len(c.stackOfOpenElements.NodeList) >= 2 &&
+				c.stackOfOpenElements.NodeList[len(c.stackOfOpenElements.NodeList)-2].NodeName == "optgroup" {
 				c.stackOfOpenElements.Pop()
 			}
 
@@ -2296,11 +2238,11 @@ func (c *HTMLTreeConstructor) afterBodyModeHandler(t Token) (bool, insertionMode
 			return c.useRulesFor(t, inBody)
 		}
 	case commentToken:
-		children := c.stackOfOpenElements[0].ChildNodes
+		children := c.stackOfOpenElements.NodeList[0].ChildNodes
 		il := &insertionLocation{
 			node: children[len(children)-1],
 			insert: func(n *spec.Node) {
-				c.stackOfOpenElements[0].AppendChild(n)
+				c.stackOfOpenElements.NodeList[0].AppendChild(n)
 			},
 		}
 		c.insertCommentAt(t, il)
@@ -2664,9 +2606,9 @@ func (c *HTMLTreeConstructor) parseTokensInForeignContent(t Token, startMode ins
 			return c.defaultParseTokensInForeignContentEndScriptTag(t, startMode)
 		}
 
-		last := len(c.stackOfOpenElements) - 1
+		last := len(c.stackOfOpenElements.NodeList) - 1
 		for i := last; i >= 1; i-- {
-			node := c.stackOfOpenElements[i]
+			node := c.stackOfOpenElements.NodeList[i]
 			if i != last && node.Element.NamespaceURI == spec.Htmlns {
 				return c.modeToModeHandler(startMode)(t)
 			}
@@ -2686,7 +2628,7 @@ func (c *HTMLTreeConstructor) parseTokensInForeignContent(t Token, startMode ins
 
 func (c *HTMLTreeConstructor) dispatch(t Token, startMode insertionMode) (bool, insertionMode) {
 	acn := c.getAdjustedCurrentNode()
-	if len(c.stackOfOpenElements) == 0 ||
+	if len(c.stackOfOpenElements.NodeList) == 0 ||
 		acn.Element.NamespaceURI == spec.Htmlns ||
 		(isMathmlIntPoint(acn) && t.TokenType == startTagToken && t.TagName != "mglyph" && t.TagName != "malignmark") ||
 		(isMathmlIntPoint(acn) && t.TokenType == characterToken) ||
