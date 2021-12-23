@@ -1425,6 +1425,8 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 					default:
 						return done()
 					}
+				} else {
+					return done()
 				}
 
 			}
@@ -1535,12 +1537,13 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 			c.insertHTMLElementForToken(t)
 			c.stackOfOpenElements.Pop()
 			// ack self closing
-			hasType := false
-			if attr, ok := t.Attributes["type"]; ok && !strings.EqualFold("hidden", string(attr.Value)) {
+			attr, ok := t.Attributes["type"]
+			if !ok {
 				c.frameset = framesetNotOK
-				hasType = true
+				return false, inBody
 			}
-			if !hasType {
+
+			if !strings.EqualFold("hidden", string(attr.Value)) {
 				c.frameset = framesetNotOK
 			}
 		case "param", "source", "track":
@@ -1580,6 +1583,9 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 			if c.scriptingEnabled {
 				return c.genericRawTextElementParsingAlgorithm(t)
 			}
+
+			c.reconstructActiveFormattingElements()
+			c.insertHTMLElementForToken(t)
 		case "select":
 			c.reconstructActiveFormattingElements()
 			c.insertHTMLElementForToken(t)

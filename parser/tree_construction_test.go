@@ -26,10 +26,9 @@ const (
 )
 
 type treeTest struct {
-	htmlIn     string
-	docFrag    docFramementTest
-	scriptMode scriptingMode
-	expected   string
+	htmlIn, expected string
+	docFrag          docFramementTest
+	scriptMode       scriptingMode
 }
 
 func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
@@ -43,20 +42,17 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 		case "#document":
 			expected = "#document\n"
 			for j := i + 1; j < len(splits); j++ {
-				if len(splits[j]) == 0 {
-					continue
-				}
-
 				expected += splits[j] + "\n"
 			}
-			return expected, docFrag
+
+			return strings.TrimRight(expected, "\n"), docFrag
 		}
 	}
 	return expected, docFrag
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := os.ReadFile("./tests/tree_construction/tricky01.dat")
+	data, err := os.ReadFile("./tests/tree_construction/adoption01.dat")
 	if err != nil {
 		t.Error(err)
 		return nil
