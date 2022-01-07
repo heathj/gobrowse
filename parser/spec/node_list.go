@@ -136,7 +136,7 @@ func (h *NodeList) PopUntil(first string, rest ...string) *Node {
 	}
 }
 
-func (h *NodeList) PopUntilConditions(funcs []func(e *Node) bool) *Node {
+func (h *NodeList) PopUntilConditions(funcs ...func(e *Node) bool) *Node {
 	for {
 		last := len(*h) - 1
 		if last < 0 {

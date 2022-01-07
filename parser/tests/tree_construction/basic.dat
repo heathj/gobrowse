@@ -1,16 +1,11 @@
 #data
-<!doctype html><p>foo<address>bar<p>baz
+<svg><font font=sans></font></svg>
 #errors
-(1,39): expected-closing-tag-but-got-eof
-30: Unclosed element “address”.
+(1,5): expected-doctype-but-got-start-tag
 #document
-| <!DOCTYPE html>
-|  <html>
+| <html>
 |   <head>
 |   <body>
-|     <p>
-|       "foo"
-|     <address>
-|       "bar"
-|       <p>
-|         "baz"
+|     <svg svg>
+|       <svg font>
+|         font="sans"

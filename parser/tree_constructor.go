@@ -762,13 +762,14 @@ func (c *HTMLTreeConstructor) reconstructActiveFormattingElements() {
 }
 
 func (c *HTMLTreeConstructor) clearStackBackToTable() {
-	for {
-		switch c.getCurrentNode().NodeName {
+	c.stackOfOpenElements.PopUntilConditions(func(e *spec.Node) bool {
+		switch e.NodeName {
 		case "table", "template", "html":
-			return
+			return true
 		}
-		c.stackOfOpenElements.Pop()
-	}
+
+		return false
+	})
 }
 
 func (c *HTMLTreeConstructor) clearStackBackToTableRow() {
@@ -1725,8 +1726,7 @@ func (c *HTMLTreeConstructor) inBodyModeHandler(t Token) (bool, insertionMode) {
 		case "sarcasm":
 			//Take a deep breath, then act as described in the "any other end tag" entry below.
 			c.defaultInBodyModeHandler(t)
-		case "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong",
-			"tt", "u":
+		case "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u":
 			if c.adoptionAgencyAlgorithm(t) {
 				c.defaultInBodyModeHandler(t)
 			}
@@ -1944,7 +1944,7 @@ func (c *HTMLTreeConstructor) inColumnGroupModeHandler(t Token) (bool, insertion
 	case characterToken:
 		switch t.Data[0] {
 		case '\u0009', '\u000A', '\u000C', '\u000D', '\u0020':
-			c.insertComment(t)
+			c.insertCharacter(t)
 			return false, inColumnGroup
 		}
 	case commentToken:
@@ -2595,28 +2595,29 @@ func (c *HTMLTreeConstructor) parseTokensInForeignContent(t Token, startMode ins
 				return c.defaultParseTokensInForeignContentStartTag(t, startMode)
 			}
 			c.stackOfOpenElements.Pop()
-			c.stackOfOpenElements.PopUntilConditions([]func(e *spec.Node) bool{
+			c.stackOfOpenElements.PopUntilConditions(
 				isHTMLIntPoint,
 				isMathmlIntPoint,
 				func(e *spec.Node) bool { return e.Element != nil && e.Element.NamespaceURI == spec.Htmlns },
-			})
+			)
 			return true, startMode
 		case "font":
-			for k := range t.Attributes {
-				switch k {
-				case "color", "face", "size":
-					if c.context != nil {
-						return c.defaultParseTokensInForeignContentStartTag(t, startMode)
-					}
-					c.stackOfOpenElements.Pop()
-					c.stackOfOpenElements.PopUntilConditions([]func(e *spec.Node) bool{
-						isHTMLIntPoint,
-						isMathmlIntPoint,
-						func(e *spec.Node) bool { return e.Element != nil && e.Element.NamespaceURI == spec.Htmlns },
-					})
-					return true, startMode
+			_, color := t.Attributes["color"]
+			_, face := t.Attributes["face"]
+			_, size := t.Attributes["size"]
+			if color || face || size {
+				if c.context != nil {
+					return c.defaultParseTokensInForeignContentStartTag(t, startMode)
 				}
+				c.stackOfOpenElements.Pop()
+				c.stackOfOpenElements.PopUntilConditions(
+					isHTMLIntPoint,
+					isMathmlIntPoint,
+					func(e *spec.Node) bool { return e.Element != nil && e.Element.NamespaceURI == spec.Htmlns },
+				)
+				return true, startMode
 			}
+			return c.defaultParseTokensInForeignContentStartTag(t, startMode)
 		default:
 			return c.defaultParseTokensInForeignContentStartTag(t, startMode)
 		}

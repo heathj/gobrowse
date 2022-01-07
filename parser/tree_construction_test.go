@@ -52,7 +52,7 @@ func getExpectedAndDocFrag(splits []string) (string, *spec.Node) {
 }
 
 func parseTests(t *testing.T) []treeTest {
-	data, err := os.ReadFile("./tests/tree_construction/basic.dat")
+	data, err := os.ReadFile("./tests/tree_construction/foreign-fragment.dat")
 	if err != nil {
 		t.Error(err)
 		return nil

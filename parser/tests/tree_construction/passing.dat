@@ -14520,3 +14520,3004 @@ console.log("FOO<span>BAR</span>BAZ");
 |       <address>
 |         <a>
 |         <a>
+
+#data
+<!doctype html><p>foo<address>bar<p>baz
+#errors
+(1,39): expected-closing-tag-but-got-eof
+30: Unclosed element “address”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <address>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><address><p>foo</address>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <address>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<article>bar<p>baz
+#errors
+(1,39): expected-closing-tag-but-got-eof
+30: Unclosed element “article”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <article>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><article><p>foo</article>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <article>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<aside>bar<p>baz
+#errors
+(1,37): expected-closing-tag-but-got-eof
+28: Unclosed element “aside”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <aside>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><aside><p>foo</aside>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <aside>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<blockquote>bar<p>baz
+#errors
+(1,42): expected-closing-tag-but-got-eof
+33: Unclosed element “blockquote”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <blockquote>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><blockquote><p>foo</blockquote>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <blockquote>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<center>bar<p>baz
+#errors
+(1,38): expected-closing-tag-but-got-eof
+29: Unclosed element “center”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <center>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><center><p>foo</center>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <center>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<details>bar<p>baz
+#errors
+(1,39): expected-closing-tag-but-got-eof
+30: Unclosed element “details”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <details>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><details><p>foo</details>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <details>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<dialog>bar<p>baz
+#errors
+(1,38): expected-closing-tag-but-got-eof
+29: Unclosed element “dialog”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <dialog>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><dialog><p>foo</dialog>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <dialog>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<dir>bar<p>baz
+#errors
+(1,35): expected-closing-tag-but-got-eof
+26: Unclosed element “dir”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <dir>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><dir><p>foo</dir>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <dir>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<div>bar<p>baz
+#errors
+(1,35): expected-closing-tag-but-got-eof
+26: Unclosed element “div”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <div>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><div><p>foo</div>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<dl>bar<p>baz
+#errors
+(1,34): expected-closing-tag-but-got-eof
+25: Unclosed element “dl”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <dl>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><dl><p>foo</dl>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <dl>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<fieldset>bar<p>baz
+#errors
+(1,40): expected-closing-tag-but-got-eof
+31: Unclosed element “fieldset”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <fieldset>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><fieldset><p>foo</fieldset>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <fieldset>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<figcaption>bar<p>baz
+#errors
+(1,42): expected-closing-tag-but-got-eof
+33: Unclosed element “figcaption”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <figcaption>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><figcaption><p>foo</figcaption>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <figcaption>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<figure>bar<p>baz
+#errors
+(1,38): expected-closing-tag-but-got-eof
+29: Unclosed element “figure”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <figure>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><figure><p>foo</figure>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <figure>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<footer>bar<p>baz
+#errors
+(1,38): expected-closing-tag-but-got-eof
+29: Unclosed element “footer”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <footer>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><footer><p>foo</footer>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <footer>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<header>bar<p>baz
+#errors
+(1,38): expected-closing-tag-but-got-eof
+29: Unclosed element “header”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <header>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><header><p>foo</header>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <header>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<hgroup>bar<p>baz
+#errors
+(1,38): expected-closing-tag-but-got-eof
+29: Unclosed element “hgroup”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <hgroup>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><hgroup><p>foo</hgroup>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <hgroup>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<listing>bar<p>baz
+#errors
+(1,39): expected-closing-tag-but-got-eof
+30: Unclosed element “listing”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <listing>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><listing><p>foo</listing>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <listing>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<menu>bar<p>baz
+#errors
+(1,36): expected-closing-tag-but-got-eof
+27: Unclosed element “menu”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <menu>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><menu><p>foo</menu>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <menu>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<nav>bar<p>baz
+#errors
+(1,35): expected-closing-tag-but-got-eof
+26: Unclosed element “nav”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <nav>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><nav><p>foo</nav>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <nav>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<ol>bar<p>baz
+#errors
+(1,34): expected-closing-tag-but-got-eof
+25: Unclosed element “ol”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <ol>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><ol><p>foo</ol>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <ol>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<pre>bar<p>baz
+#errors
+(1,35): expected-closing-tag-but-got-eof
+26: Unclosed element “pre”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <pre>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><pre><p>foo</pre>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <pre>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<section>bar<p>baz
+#errors
+(1,39): expected-closing-tag-but-got-eof
+30: Unclosed element “section”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <section>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><section><p>foo</section>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <section>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<summary>bar<p>baz
+#errors
+(1,39): expected-closing-tag-but-got-eof
+30: Unclosed element “summary”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <summary>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><summary><p>foo</summary>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <summary>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+<!doctype html><p>foo<ul>bar<p>baz
+#errors
+(1,34): expected-closing-tag-but-got-eof
+25: Unclosed element “ul”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "foo"
+|     <ul>
+|       "bar"
+|       <p>
+|         "baz"
+
+#data
+<!doctype html><ul><p>foo</ul>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <ul>
+|       <p>
+|         "foo"
+|     "bar"
+
+#data
+FOO<!-- BAR -->BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR  -->
+|     "BAZ"
+
+#data
+FOO<!-- BAR --!>BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,15): unexpected-bang-after-double-dash-in-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR  -->
+|     "BAZ"
+
+#data
+FOO<!-- BAR --   >BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,15): unexpected-char-in-comment
+(1,21): eof-in-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR --   >BAZ -->
+
+#data
+FOO<!-- BAR -- <QUX> -- MUX -->BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,15): unexpected-char-in-comment
+(1,24): unexpected-char-in-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR -- <QUX> -- MUX  -->
+|     "BAZ"
+
+#data
+FOO<!-- BAR -- <QUX> -- MUX --!>BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,15): unexpected-char-in-comment
+(1,24): unexpected-char-in-comment
+(1,31): unexpected-bang-after-double-dash-in-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR -- <QUX> -- MUX  -->
+|     "BAZ"
+
+#data
+FOO<!-- BAR -- <QUX> -- MUX -- >BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,15): unexpected-char-in-comment
+(1,24): unexpected-char-in-comment
+(1,31): unexpected-char-in-comment
+(1,35): eof-in-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR -- <QUX> -- MUX -- >BAZ -->
+
+#data
+FOO<!---->BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  -->
+|     "BAZ"
+
+#data
+FOO<!--->BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,9): incorrect-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  -->
+|     "BAZ"
+
+#data
+FOO<!-->BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,8): incorrect-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  -->
+|     "BAZ"
+
+#data
+<?xml version="1.0">Hi
+#errors
+(1,1): expected-tag-name-but-got-question-mark
+(1,22): expected-doctype-but-got-chars
+#document
+| <!-- ?xml version="1.0" -->
+| <html>
+|   <head>
+|   <body>
+|     "Hi"
+
+#data
+<?xml version="1.0">
+#errors
+(1,1): expected-tag-name-but-got-question-mark
+(1,20): expected-doctype-but-got-eof
+#document
+| <!-- ?xml version="1.0" -->
+| <html>
+|   <head>
+|   <body>
+
+#data
+<?xml version
+#errors
+(1,1): expected-tag-name-but-got-question-mark
+(1,13): expected-doctype-but-got-eof
+#document
+| <!-- ?xml version -->
+| <html>
+|   <head>
+|   <body>
+
+#data
+FOO<!----->BAZ
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,10): unexpected-dash-after-double-dash-in-comment
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!-- - -->
+|     "BAZ"
+
+#data
+<html><!-- comment --><title>Comment before head</title>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <!--  comment  -->
+|   <head>
+|     <title>
+|       "Comment before head"
+|   <body>
+
+#data
+<!DOCTYPE html>Hello
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!dOctYpE HtMl>Hello
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPEhtml>Hello
+#errors
+(1,9): need-space-after-doctype
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE>Hello
+#errors
+(1,9): need-space-after-doctype
+(1,10): expected-doctype-name-but-got-right-bracket
+(1,10): unknown-doctype
+#document
+| <!DOCTYPE >
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE >Hello
+#errors
+(1,11): expected-doctype-name-but-got-right-bracket
+(1,11): unknown-doctype
+#document
+| <!DOCTYPE >
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato>Hello
+#errors
+(1,17): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato >Hello
+#errors
+(1,18): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato taco>Hello
+#errors
+(1,17): expected-space-or-right-bracket-in-doctype
+(1,22): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato taco "ddd>Hello
+#errors
+(1,17): expected-space-or-right-bracket-in-doctype
+(1,27): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato sYstEM>Hello
+#errors
+(1,24): unexpected-char-in-doctype
+(1,24): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato sYstEM    >Hello
+#errors
+(1,28): unexpected-char-in-doctype
+(1,28): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE   potato       sYstEM  ggg>Hello
+#errors
+(1,34): unexpected-char-in-doctype
+(1,37): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato SYSTEM taco  >Hello
+#errors
+(1,25): unexpected-char-in-doctype
+(1,31): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato SYSTEM 'taco"'>Hello
+#errors
+(1,32): unknown-doctype
+#document
+| <!DOCTYPE potato "" "taco"">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato SYSTEM "taco">Hello
+#errors
+(1,31): unknown-doctype
+#document
+| <!DOCTYPE potato "" "taco">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato SYSTEM "tai'co">Hello
+#errors
+(1,33): unknown-doctype
+#document
+| <!DOCTYPE potato "" "tai'co">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato SYSTEMtaco "ddd">Hello
+#errors
+(1,24): unexpected-char-in-doctype
+(1,34): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato grass SYSTEM taco>Hello
+#errors
+(1,17): expected-space-or-right-bracket-in-doctype
+(1,35): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato pUbLIc>Hello
+#errors
+(1,24): unexpected-end-of-doctype
+(1,24): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato pUbLIc >Hello
+#errors
+(1,25): unexpected-end-of-doctype
+(1,25): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato pUbLIcgoof>Hello
+#errors
+(1,24): unexpected-char-in-doctype
+(1,28): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato PUBLIC goof>Hello
+#errors
+(1,25): unexpected-char-in-doctype
+(1,29): unknown-doctype
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato PUBLIC "go'of">Hello
+#errors
+(1,32): unknown-doctype
+#document
+| <!DOCTYPE potato "go'of" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato PUBLIC 'go'of'>Hello
+#errors
+(1,29): unexpected-char-in-doctype
+(1,32): unknown-doctype
+#document
+| <!DOCTYPE potato "go" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato PUBLIC 'go:hh   of' >Hello
+#errors
+(1,38): unknown-doctype
+#document
+| <!DOCTYPE potato "go:hh   of" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE potato PUBLIC "W3C-//dfdf" SYSTEM ggg>Hello
+#errors
+(1,38): unexpected-char-in-doctype
+(1,48): unknown-doctype
+#document
+| <!DOCTYPE potato "W3C-//dfdf" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">Hello
+#errors
+#document
+| <!DOCTYPE html "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE ...>Hello
+#errors
+(1,14): unknown-doctype
+#document
+| <!DOCTYPE ...>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+
+#data
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+#errors
+(2,58): unknown-doctype
+#document
+| <!DOCTYPE html "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">
+#errors
+(2,54): unknown-doctype
+#document
+| <!DOCTYPE html "-//W3C//DTD XHTML 1.0 Frameset//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE root-element [SYSTEM OR PUBLIC FPI] "uri" [ 
+<!-- internal declarations -->
+]>
+#errors
+(1,23): expected-space-or-right-bracket-in-doctype
+(2,30): unknown-doctype
+#document
+| <!DOCTYPE root-element>
+| <html>
+|   <head>
+|   <body>
+|     "]>"
+
+#data
+<!DOCTYPE html PUBLIC
+  "-//WAPFORUM//DTD XHTML Mobile 1.0//EN"
+    "http://www.wapforum.org/DTD/xhtml-mobile10.dtd">
+#errors
+(3,53): unknown-doctype
+#document
+| <!DOCTYPE html "-//WAPFORUM//DTD XHTML Mobile 1.0//EN" "http://www.wapforum.org/DTD/xhtml-mobile10.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE HTML SYSTEM "http://www.w3.org/DTD/HTML4-strict.dtd"><body><b>Mine!</b></body>
+#errors
+(1,63): unknown-doctype
+#document
+| <!DOCTYPE html "" "http://www.w3.org/DTD/HTML4-strict.dtd">
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       "Mine!"
+
+#data
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN""http://www.w3.org/TR/html4/strict.dtd">
+#errors
+(1,50): unexpected-char-in-doctype
+#document
+| <!DOCTYPE html "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"'http://www.w3.org/TR/html4/strict.dtd'>
+#errors
+(1,50): unexpected-char-in-doctype
+#document
+| <!DOCTYPE html "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE HTML PUBLIC"-//W3C//DTD HTML 4.01//EN"'http://www.w3.org/TR/html4/strict.dtd'>
+#errors
+(1,21): unexpected-char-in-doctype
+(1,49): unexpected-char-in-doctype
+#document
+| <!DOCTYPE html "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<!DOCTYPE HTML PUBLIC'-//W3C//DTD HTML 4.01//EN''http://www.w3.org/TR/html4/strict.dtd'>
+#errors
+(1,21): unexpected-char-in-doctype
+(1,49): unexpected-char-in-doctype
+#document
+| <!DOCTYPE html "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+| <html>
+|   <head>
+|   <body>
+
+#data
+<svg><![CDATA[foo
+bar]]>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(2,6): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "foo
+bar"
+
+#data
+<svg><![CDATA[foo
+bar]]>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(2,6): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "foo
+bar"
+
+#data
+<svg><![CDATA[foo
+bar]]>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(2,6): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "foo
+bar"
+
+#data
+<script>a=' '</script>
+#errors
+(1,8): expected-doctype-but-got-start-tag
+(1,12): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       "a='�'"
+|   <body>
+
+#data
+<script type="data"><!-- </script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,25): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--�"
+|   <body>
+
+#data
+<script type="data"><!--foo </script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,28): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--foo�"
+|   <body>
+
+#data
+<script type="data"><!-- foo- </script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,30): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!-- foo-�"
+|   <body>
+
+#data
+<script type="data"><!-- foo-- </script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,31): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!-- foo--�"
+|   <body>
+
+#data
+<script type="data"><!-- foo-
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,29): expected-script-data-but-got-eof
+(1,29): expected-named-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!-- foo-"
+|   <body>
+
+#data
+<script type="data"><!-- foo-<</script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!-- foo-<"
+|   <body>
+
+#data
+<script type="data"><!-- foo-<S
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,31): expected-script-data-but-got-eof
+(1,31): expected-named-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!-- foo-<S"
+|   <body>
+
+#data
+<script type="data"><!-- foo-</SCRIPT>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!-- foo-"
+|   <body>
+
+#data
+<script type="data"><!--<p></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<p>"
+|   <body>
+
+#data
+<script type="data"><!--<script></script></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script></script>"
+|   <body>
+
+#data
+<script type="data"><!--<script> </script></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,33): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script>�</script>"
+|   <body>
+
+#data
+<script type="data"><!--<script>- </script></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,34): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script>-�</script>"
+|   <body>
+
+#data
+<script type="data"><!--<script>-- </script></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+(1,35): invalid-codepoint
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script>--�</script>"
+|   <body>
+
+#data
+<script type="data"><!--<script>---</script></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script>---</script>"
+|   <body>
+
+#data
+<script type="data"><!--<script></scrip></SCRIPT></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script></scrip></SCRIPT>"
+|   <body>
+
+#data
+<script type="data"><!--<script></scrip </SCRIPT></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script></scrip </SCRIPT>"
+|   <body>
+
+#data
+<script type="data"><!--<script></scrip/</SCRIPT></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--<script></scrip/</SCRIPT>"
+|   <body>
+
+#data
+<script type="data"></scrip/></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "</scrip/>"
+|   <body>
+
+#data
+<script type="data"></scrip ></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "</scrip >"
+|   <body>
+
+#data
+<script type="data"><!--</scrip></script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--</scrip>"
+|   <body>
+
+#data
+<script type="data"><!--</scrip </script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--</scrip "
+|   <body>
+
+#data
+<script type="data"><!--</scrip/</script>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|     <script>
+|       type="data"
+|       "<!--</scrip/"
+|   <body>
+
+#data
+<!DOCTYPE html><!DOCTYPE html>
+#errors
+(1,30): unexpected-doctype
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><!DOCTYPE html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+(1,21): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head><!DOCTYPE html></head>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+(1,27): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<html><head></head><!DOCTYPE html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+(1,34): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<body></body><!DOCTYPE html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+(1,28): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<table><!DOCTYPE html></table>
+#errors
+(1,7): expected-doctype-but-got-start-tag
+(1,22): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+
+#data
+<select><!DOCTYPE html></select>
+#errors
+(1,8): expected-doctype-but-got-start-tag
+(1,23): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+|     <select>
+
+#data
+<table><colgroup><!DOCTYPE html></colgroup></table>
+#errors
+(1,7): expected-doctype-but-got-start-tag
+(1,32): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <colgroup>
+
+#data
+<table><colgroup><!--test--></colgroup></table>
+#errors
+(1,7): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <colgroup>
+|         <!-- test -->
+
+#data
+<table><colgroup><html></colgroup></table>
+#errors
+(1,7): expected-doctype-but-got-start-tag
+(1,23): non-html-root
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <colgroup>
+
+#data
+<table><colgroup> foo</colgroup></table>
+#errors
+(1,7): expected-doctype-but-got-start-tag
+(1,32): foster-parenting-character-in-table
+(1,32): foster-parenting-character-in-table
+(1,32): foster-parenting-character-in-table
+(1,32): unexpected-end-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     "foo"
+|     <table>
+|       <colgroup>
+|         " "
+
+#data
+<select><!--test--></select>
+#errors
+(1,8): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <!-- test -->
+
+#data
+<select><html></select>
+#errors
+(1,8): expected-doctype-but-got-start-tag
+(1,14): non-html-root
+#document
+| <html>
+|   <head>
+|   <body>
+|     <select>
+
+#data
+<frameset><html></frameset>
+#errors
+(1,10): expected-doctype-but-got-start-tag
+(1,16): non-html-root
+#document
+| <html>
+|   <head>
+|   <frameset>
+
+#data
+<frameset></frameset><html>
+#errors
+(1,10): expected-doctype-but-got-start-tag
+(1,27): non-html-root
+#document
+| <html>
+|   <head>
+|   <frameset>
+
+#data
+<frameset></frameset><!DOCTYPE html>
+#errors
+(1,10): expected-doctype-but-got-start-tag
+(1,36): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <frameset>
+
+#data
+<html><body></body></html><!DOCTYPE html>
+#errors
+(1,6): expected-doctype-but-got-start-tag
+(1,41): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+
+#data
+<svg><!DOCTYPE html></svg>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,20): unexpected-doctype
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+
+#data
+<svg><font></font></svg>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg font>
+
+#data
+<svg><font id=foo></font></svg>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg font>
+|         id="foo"
+
+#data
+<svg><font size=4></font></svg>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,18): unexpected-html-element-in-foreign-content
+(1,31): unexpected-end-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|     <font>
+|       size="4"
+
+#data
+<svg><font color=red></font></svg>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,21): unexpected-html-element-in-foreign-content
+(1,34): unexpected-end-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|     <font>
+|       color="red"
+
+#data
+<svg><font font=sans></font></svg>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg font>
+|         font="sans"
+
+#data
+FOO&gt;BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO>BAR"
+
+#data
+FOO&gtBAR
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,6): named-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO>BAR"
+
+#data
+FOO&gt BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,6): named-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO> BAR"
+
+#data
+FOO&gt;;;BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO>;;BAR"
+
+#data
+I'm &notit; I tell you
+#errors
+(1,4): expected-doctype-but-got-chars
+(1,9): named-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     "I'm ¬it; I tell you"
+
+#data
+I'm &notin; I tell you
+#errors
+(1,4): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "I'm ∉ I tell you"
+
+#data
+FOO& BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO& BAR"
+
+#data
+FOO&<BAR>
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,9): expected-closing-tag-but-got-eof
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO&"
+|     <bar>
+
+#data
+FOO&&&&gt;BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO&&&>BAR"
+
+#data
+FOO&#41;BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO)BAR"
+
+#data
+FOO&#x41;BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOABAR"
+
+#data
+FOO&#X41;BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOABAR"
+
+#data
+FOO&#BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,5): expected-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO&#BAR"
+
+#data
+FOO&#ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,5): expected-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO&#ZOO"
+
+#data
+FOO&#xBAR
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,7): expected-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOºR"
+
+#data
+FOO&#xZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,6): expected-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO&#xZOO"
+
+#data
+FOO&#XZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,6): expected-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO&#XZOO"
+
+#data
+FOO&#41BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,7): numeric-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO)BAR"
+
+#data
+FOO&#x41BAR
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,10): numeric-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO䆺R"
+
+#data
+FOO&#x41ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,8): numeric-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOAZOO"
+
+#data
+FOO&#x0000;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#x0078;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOxZOO"
+
+#data
+FOO&#x0079;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOyZOO"
+
+#data
+FOO&#x0080;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO€ZOO"
+
+#data
+FOO&#x0081;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+
+#data
+FOO&#x0082;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO‚ZOO"
+
+#data
+FOO&#x0083;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOƒZOO"
+
+#data
+FOO&#x0084;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO„ZOO"
+
+#data
+FOO&#x0085;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO…ZOO"
+
+#data
+FOO&#x0086;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO†ZOO"
+
+#data
+FOO&#x0087;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO‡ZOO"
+
+#data
+FOO&#x0088;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOˆZOO"
+
+#data
+FOO&#x0089;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO‰ZOO"
+
+#data
+FOO&#x008A;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOŠZOO"
+
+#data
+FOO&#x008B;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO‹ZOO"
+
+#data
+FOO&#x008C;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOŒZOO"
+
+#data
+FOO&#x008D;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+
+#data
+FOO&#x008E;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOŽZOO"
+
+#data
+FOO&#x008F;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+
+#data
+FOO&#x0090;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+
+#data
+FOO&#x0091;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO‘ZOO"
+
+#data
+FOO&#x0092;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO’ZOO"
+
+#data
+FOO&#x0093;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO“ZOO"
+
+#data
+FOO&#x0094;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO”ZOO"
+
+#data
+FOO&#x0095;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO•ZOO"
+
+#data
+FOO&#x0096;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO–ZOO"
+
+#data
+FOO&#x0097;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO—ZOO"
+
+#data
+FOO&#x0098;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO˜ZOO"
+
+#data
+FOO&#x0099;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO™ZOO"
+
+#data
+FOO&#x009A;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOšZOO"
+
+#data
+FOO&#x009B;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO›ZOO"
+
+#data
+FOO&#x009C;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOœZOO"
+
+#data
+FOO&#x009D;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+
+#data
+FOO&#x009E;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOžZOO"
+
+#data
+FOO&#x009F;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOŸZOO"
+
+#data
+FOO&#x00A0;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO ZOO"
+
+#data
+FOO&#xD7FF;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO퟿ZOO"
+
+#data
+FOO&#xD800;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#xD801;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#xDFFE;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#xDFFF;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,11): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#xE000;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+
+#data
+FOO&#x10FFFE;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO􏿾ZOO"
+
+#data
+FOO&#x1087D4;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO􈟔ZOO"
+
+#data
+FOO&#x10FFFF;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO􏿿ZOO"
+
+#data
+FOO&#x110000;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#xFFFFFF;ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#11111111111
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+(1,13): eof-in-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�"
+
+#data
+FOO&#1111111111
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+(1,13): eof-in-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�"
+
+#data
+FOO&#111111111111
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+(1,13): eof-in-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�"
+
+#data
+FOO&#11111111111ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#1111111111ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+FOO&#111111111111ZOO
+#errors
+(1,3): expected-doctype-but-got-chars
+(1,13): illegal-codepoint-for-numeric-entity
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+
+#data
+<div bar="ZZ&gt;YY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>YY"
+
+#data
+<div bar="ZZ&"></div>
+#errors
+(1,15): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&"
+
+#data
+<div bar='ZZ&'></div>
+#errors
+(1,15): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&"
+
+#data
+<div bar=ZZ&></div>
+#errors
+(1,13): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&"
+
+#data
+<div bar="ZZ&gt=YY"></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&gt=YY"
+
+#data
+<div bar="ZZ&gt0YY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&gt0YY"
+
+#data
+<div bar="ZZ&gt9YY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&gt9YY"
+
+#data
+<div bar="ZZ&gtaYY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&gtaYY"
+
+#data
+<div bar="ZZ&gtZYY"></div>
+#errors
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&gtZYY"
+
+#data
+<div bar="ZZ&gt YY"></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,20): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ> YY"
+
+#data
+<div bar="ZZ&gt"></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,17): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>"
+
+#data
+<div bar='ZZ&gt'></div>
+#errors
+(1,15): named-entity-without-semicolon
+(1,17): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>"
+
+#data
+<div bar=ZZ&gt></div>
+#errors
+(1,14): named-entity-without-semicolon
+(1,15): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ>"
+
+#data
+<div bar="ZZ&pound_id=23"></div>
+#errors
+(1,18): named-entity-without-semicolon
+(1,26): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ£_id=23"
+
+#data
+<div bar="ZZ&prod_id=23"></div>
+#errors
+(1,25): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&prod_id=23"
+
+#data
+<div bar="ZZ&pound;_id=23"></div>
+#errors
+(1,27): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ£_id=23"
+
+#data
+<div bar="ZZ&prod;_id=23"></div>
+#errors
+(1,26): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ∏_id=23"
+
+#data
+<div bar="ZZ&pound=23"></div>
+#errors
+(1,18): named-entity-without-semicolon
+(1,23): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&pound=23"
+
+#data
+<div bar="ZZ&prod=23"></div>
+#errors
+(1,22): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&prod=23"
+
+#data
+<div>ZZ&pound_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,13): named-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£_id=23"
+
+#data
+<div>ZZ&prod_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ&prod_id=23"
+
+#data
+<div>ZZ&pound;_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£_id=23"
+
+#data
+<div>ZZ&prod;_id=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ∏_id=23"
+
+#data
+<div>ZZ&pound=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+(1,13): named-entity-without-semicolon
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£=23"
+
+#data
+<div>ZZ&prod=23</div>
+#errors
+(1,5): expected-doctype-but-got-start-tag
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ&prod=23"
+
+#data
+<div>ZZ&AElig=</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZÆ="
